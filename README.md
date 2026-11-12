@@ -1,20 +1,58 @@
 # ProductInventory — API de inventario con .NET 9
 Las etapas 5.1, 5.2 y 5.3 están APPROVED. La etapa 5.4 está COMPLETED, pendiente de aprobación humana: 17/17 casos de uso cubiertos, CRUD de categorías, proveedores y productos, y movimientos IN/OUT. Restore, build y 107 pruebas pasaron; Compose inicia y /health devuelve 200 Healthy.
 ## Requisitos
-Instala un SDK de .NET capaz de compilar para net9.0 y el entorno de ejecución de ASP.NET Core 9. La estructura inicial se verificó con el SDK 9.0.321. La primera restauración requiere acceso a NuGet.
+Para compilar y ejecutar la API localmente necesitas:
+
+- **.NET 9 SDK** para tu sistema operativo. Incluye el runtime de .NET y ASP.NET Core necesarios para ejecutar la API. Descárgalo desde la [página oficial de .NET 9](https://dotnet.microsoft.com/download/dotnet/9.0); instala el SDK, no solo el runtime. El proyecto apunta a `net9.0` y no fija una versión puntual del SDK.
+- **Git**, para clonar el repositorio, y **acceso a Internet** durante `dotnet restore` para descargar paquetes de NuGet.
+
+Para trabajar desde Visual Studio en Windows, instala **Visual Studio 2022 17.12 o posterior** con la carga de trabajo **ASP.NET y desarrollo web**. También puedes compilar y ejecutar desde una terminal con el SDK, sin Visual Studio.
+
+Para iniciar los servicios locales y ejecutar las pruebas de integración necesitas **Docker Desktop** con Docker Engine y Docker Compose v2 disponibles. Compose ya viene incluido en Docker Desktop; no hace falta instalar Docker Compose por separado. Descarga Docker Desktop desde su [página oficial](https://www.docker.com/products/docker-desktop/) y consulta la [guía oficial de instalación de Compose](https://docs.docker.com/compose/install/). El entorno Compose levanta SQL Server, Keycloak y la API. Las pruebas de integración usan SQL Server real y requieren permiso `CREATE DATABASE`.
+
+Comprueba la instalación con `dotnet --list-sdks`, `docker --version` y `docker compose version`. La primera restauración requiere acceso a NuGet.
 ## Estructura del repositorio
-El código de aplicación y las pruebas están en `code/`. La documentación permanece en `docs/` y `specs/`. `infra/` documenta la persistencia local y contiene valores de ejemplo para las variables de entorno; `docker-compose.yml` inicia el entorno base. Más adelante se pueden incorporar archivos de canalización en `pipelines/`.
+El repositorio separa el código ejecutable, la documentación del proyecto y los recursos para el entorno local. La solución y sus siete proyectos viven en `code/`; así, otros recursos de despliegue o automatización pueden agregarse en carpetas raíz independientes.
+
 ```text
-code/
-  ProductInventory.sln
-  .editorconfig
-  Directory.Build.props
-  Directory.Packages.props
-  src/
-    ProductInventory.Api/
-      Dockerfile
-  tests/
+ProductInventory/
+├── code/
+│   ├── ProductInventory.sln
+│   ├── Directory.Build.props
+│   ├── Directory.Packages.props
+│   ├── .editorconfig
+│   ├── src/
+│   │   ├── ProductInventory.Api/
+│   │   ├── ProductInventory.Application/
+│   │   ├── ProductInventory.Domain/
+│   │   └── ProductInventory.Infrastructure/
+│   └── tests/
+│       ├── ProductInventory.Domain.Tests/
+│       ├── ProductInventory.Application.Tests/
+│       └── ProductInventory.IntegrationTests/
+├── docs/
+│   └── adr/
+├── infra/
+│   └── keycloak/
+├── specs/
+│   └── usecases/
+├── docker-compose.yml
+└── README.md
 ```
+
+- **`code/src/ProductInventory.Api/`**: aplicación ASP.NET Core. `Features/` mapea rutas HTTP y enlaza solicitudes con handlers; `Security/` configura JWT Bearer; `Documentation/` configura OpenAPI y Swagger; `Hosting/` registra dependencias y configura el host. Aquí también está el Dockerfile de la API.
+- **`code/src/ProductInventory.Application/`**: casos de uso CQRS manuales. Contiene comandos, consultas, handlers, DTOs y puertos de persistencia. Depende de Domain y no contiene acceso directo a SQL ni referencias a Infrastructure.
+- **`code/src/ProductInventory.Domain/`**: entidades, reglas e invariantes de negocio. Se mantiene independiente de ASP.NET Core, EF Core, Dapper y SQL Server.
+- **`code/src/ProductInventory.Infrastructure/`**: adaptadores de persistencia. Implementa las lecturas con EF Core y las escrituras con Dapper; contiene el acceso a SQL Server y las implementaciones de los puertos de Application.
+- **`code/tests/ProductInventory.Domain.Tests/`**: pruebas unitarias de entidades e invariantes del dominio.
+- **`code/tests/ProductInventory.Application.Tests/`**: pruebas unitarias de handlers, validaciones y puertos de aplicación.
+- **`code/tests/ProductInventory.IntegrationTests/`**: pruebas HTTP y de persistencia contra SQL Server real; no usa una base de datos en memoria.
+- **`code/Directory.Build.props` y `code/Directory.Packages.props`**: centralizan propiedades de compilación, framework destino y versiones de paquetes NuGet. **`code/.editorconfig`** aplica convenciones de formato al árbol `code/`.
+- **`infra/` y `docker-compose.yml`**: configuración y guías para el entorno local. `infra/keycloak/` guarda la configuración del realm de desarrollo. Los secretos se proporcionan por variables de entorno o `.env` local ignorado por Git.
+- **`specs/`**: requisitos, modelo de entidades, trazabilidad y casos de uso aprobados. **`docs/adr/`** contiene las decisiones arquitectónicas aceptadas y sus traducciones.
+- **`pipelines/`**: carpeta prevista para automatización CI/CD futura; todavía no forma parte de la estructura actual.
+
+Las dependencias entre proyectos siguen esta dirección: `Domain` no depende de otros proyectos; `Application` depende de `Domain`; `Infrastructure` implementa los puertos de `Application`; y `Api` compone las capas externas.
 ## Configuración compartida de compilación
 `code/.editorconfig` define la codificación, los finales de línea, la indentación y el estilo de C# únicamente dentro de `code/`; la documentación de la raíz y las futuras carpetas de infraestructura o canalizaciones quedan fuera de su alcance. Se conservan los espacios finales de Markdown para los saltos de línea explícitos. Las reglas de líneas en blanco y longitud de métodos del ADR-008 todavía requieren revisión manual.
 La selección del SDK depende del entorno instalado; actualmente no se incluye global.json. `code/Directory.Build.props` define `net9.0`, los tipos de referencia que admiten valores nulos y las importaciones implícitas para los siete proyectos. `code/Directory.Packages.props` habilita la administración central de paquetes NuGet y contiene todas las versiones de dependencias directas; cada archivo de proyecto declara solo sus propias referencias. Agregar una versión central no incorpora el paquete a ningún proyecto.
