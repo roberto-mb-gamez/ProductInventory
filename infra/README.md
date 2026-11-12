@@ -3,7 +3,7 @@ El entorno incorpora API, SQL Server y Keycloak durante la etapa 5.3. La etapa 5
 ## Docker Compose
 Desde la raíz del repositorio:
 ```powershell
-Copy-Item infra/.env.example .env
+Copy-Item .env.example .env
 ```
 Si `.env` ya existe, conserva sus valores y agrega solo las variables nuevas de `.env.example`. Sustituye los marcadores de contraseña SQL, administrador de Keycloak y usuario de desarrollo por contraseñas locales diferentes. Utiliza una contraseña sin separadores de cadenas de conexión, como punto y coma o comillas. Después ejecuta:
 ```powershell
