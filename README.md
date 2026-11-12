@@ -1,5 +1,5 @@
 # ProductInventory — API de inventario con .NET 9
-Las etapas 5.1, 5.2 y 5.3 están APPROVED. La etapa 5.4 está COMPLETED, pendiente de aprobación humana: 17/17 casos de uso cubiertos, CRUD de categorías, proveedores y productos, y movimientos IN/OUT. Restore, build y 107 pruebas pasaron; Compose inicia y /health devuelve 200 Healthy.
+API REST para gestionar productos, categorías, proveedores y movimientos de inventario IN/OUT. Incluye 17 casos de uso, autenticación con Keycloak y un entorno Docker Compose con SQL Server.
 ## Requisitos
 Para compilar y ejecutar la API localmente necesitas:
 
@@ -225,6 +225,30 @@ dotnet test tests/ProductInventory.IntegrationTests
 `dotnet test` restaura y compila los proyectos de pruebas antes de ejecutarlos. Si existe `code/integration.local.runsettings`, su conexión tiene prioridad sobre la variable de la terminal; actualízala para que apunte al SQL Server del contenedor.
 
 Hay cuatro proyectos de código fuente y tres de pruebas. Las pruebas de integración requieren SQL Server real y permiso CREATE DATABASE; la ausencia de conexión produce un fallo y no omite las pruebas de base de datos. Cada ejecución crea bases con nombres únicos y las conserva para inspección. No se reinicia ni elimina ninguna base existente. La suite contiene 20 pruebas de Domain, 23 de Application y 64 de integración. Los tests HTTP usan una identidad exclusiva del host de pruebas para comprobar negocio; no validan JWT ni necesitan Keycloak. La seguridad se revisa manualmente. Todos los proyectos de pruebas referencian Moq.
+
+### Cobertura y resultados de validación
+
+Desde `code/`, con la conexión de pruebas configurada, puedes generar cobertura y resultados TRX en PowerShell o CMD:
+
+```text
+dotnet test tests/ProductInventory.Domain.Tests --collect:"XPlat Code Coverage" --logger trx --results-directory TestResults/Domain
+dotnet test tests/ProductInventory.Application.Tests --collect:"XPlat Code Coverage" --logger trx --results-directory TestResults/Application
+dotnet test tests/ProductInventory.IntegrationTests --collect:"XPlat Code Coverage" --logger trx --results-directory TestResults/Integration
+```
+
+Los reportes `coverage.cobertura.xml` quedan en subcarpetas de `code/TestResults/`, ignoradas por Git. La solución incluye un proyecto `.dcproj`: para compilarla completa utiliza Visual Studio o su MSBuild con las herramientas de contenedores instaladas; los comandos `dotnet test` anteriores seleccionan directamente cada proyecto .NET.
+
+Validación ejecutada el **2026-11-12**: restauración y compilación de la solución en Release correctas; **107/107 pruebas aprobadas**, sin fallos ni omisiones. Se repitieron seis escenarios de concurrencia, rollback y cancelación sobre SQL Server real, todos aprobados. Se verificó un Compose aislado con volúmenes nuevos, inicialización de las cuatro tablas, salud y Swagger.
+
+| Capa | Cobertura de líneas combinada |
+|---|---|
+| Domain | 97.83% |
+| Application | 99.09% |
+| Infrastructure | 89.02% |
+| Api | 94.81% |
+| Total | 93.75% (645/688 líneas) |
+
+La cobertura combina las líneas ejecutadas por las tres suites, sin imponer un umbral. Los vacíos incluyen rutas defensivas, respuestas de errores poco frecuentes, setters de modelos de lectura y transporte HTTPS fuera de Development. La comprobación separada contra Keycloak real completó 57 verificaciones HTTP de Swagger, Authorization Code con PKCE, operaciones autenticadas y rechazo de tokens inválidos o expirados; estas comprobaciones no forman parte de la cobertura ni sustituyen una prueba visual automatizada del navegador. `403` no aplica al alcance actual, que no define roles ni políticas granulares. La trazabilidad de los [17 casos de uso](specs/traceability.md) distingue las pruebas de negocio de la validación de seguridad.
 ## Ejecución y depuración local
 
 ### PowerShell

@@ -28,7 +28,7 @@
 La matriz siguiente enlaza la implementación y las pruebas de la etapa 5.4.
 
 ## Implementación verificada — etapa 5.4
-Estado: 17/17 COMPLETED el 2026-11-12, pendiente de aprobación humana. Evidencia detallada local: docs/implementation/evidence/STAGE-5.4-use-cases.md; resultados TRX en test-results-5.4.
+Estado: 17/17 implementados; 5.4 APPROVED por el responsable el 2026-11-12. Revalidados en 5.5 mediante 107 pruebas aprobadas y comprobaciones HTTP contra el entorno Compose aislado. Evidencia detallada local: docs/implementation/evidence/STAGE-5.5-validation.md; resultados TRX, cobertura y trazabilidad por prueba en evidence/stage-5.5/.
 
 | UC | Requisito | Pruebas de integración / comprobación | Resultado |
 |---|---|---|---|
@@ -37,8 +37,8 @@ Estado: 17/17 COMPLETED el 2026-11-12, pendiente de aprobación humana. Evidenci
 | UC-003 | FR-003 | ProductApiTests.UC003*: filtros AND, paginación y límites | 200/400 |
 | UC-004 | FR-004 | ProductApiTests.UC004*: relaciones, SKU, inexistente y conservación del stock | 200/400/404/409 |
 | UC-005 | FR-005 | ProductApiTests.UC005*: borrado y protección del historial | 204/404/409 |
-| UC-006 | FR-006, BR-023–027 | MovementApiTests.UC006*: IN/OUT, UTC, saldos, rollback, concurrencia; StockMovementPersistenceTests | 201/400/404/409, rollback ante 500 |
-| UC-007 | FR-007/008 | Seguridad manual aprobada en 5.3; smoke de las 16 operaciones en Compose sin token | 16 respuestas 401; JWT/PKCE mantienen controles de 5.3 |
+| UC-006 | FR-006, BR-023–027 | MovementApiTests.UC006*: IN/OUT, UTC, saldos, rollback, concurrencia; StockMovementTests | 201/400/404/409, rollback ante 500 |
+| UC-007 | FR-007/008 | Seguridad manual aprobada en 5.3; en 5.5 validación HTTP separada contra Keycloak real con Authorization Code/PKCE, token válido y casos negativos | 16 operaciones anónimas devuelven 401; token válido permite negocio; firma, audiencia, otro emisor y expiración rechazados; PKCE inválido rechazado |
 | UC-008 | FR-009 | CategoryApiTests.UC008*: creación, unicidad y validación | 201/400/409 |
 | UC-009 | FR-010 | CategoryApiTests.UC009*: detalle e inexistente | 200/404 |
 | UC-010 | FR-011 | CategoryApiTests.UC010*: orden, página, límites y página extrema | 200/400 |
@@ -51,3 +51,5 @@ Estado: 17/17 COMPLETED el 2026-11-12, pendiente de aprobación humana. Evidenci
 | UC-017 | FR-018 | SupplierApiTests.UC017*: borrado y protección de productos | 204/404/409 |
 
 Además, Domain.Tests valida invariantes y Application.Tests valida handlers/puertos. ApiContractTests verifica siete rutas y 16 operaciones OpenAPI, contrato 201 de movimientos y errores genéricos. Las pruebas HTTP de negocio usan identidad exclusiva del host de pruebas y SQL Server real: no prueban JWT y no contactan Keycloak. La validación de seguridad con tokens válidos e inválidos permanece manual por instrucción del responsable.
+
+En 5.5 se ejecutó adicionalmente un cliente HTTP de validación local, fuera de los proyectos de pruebas, contra Keycloak y la API desplegados en un Compose aislado. Su informe contiene 57 comprobaciones aprobadas, sin guardar tokens ni credenciales. No se incorpora Keycloak al ejecutor de pruebas, no se automatiza la interfaz visual de Swagger y no se exige 403 sin políticas de autorización granular. Los TRX enlazan pruebas UC001–UC006 y UC008–UC017; UC007 queda enlazado al informe HTTP y a la evidencia humana anterior. La etapa 5.5 requiere aprobación final independiente de la aprobación de 5.4.
