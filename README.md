@@ -166,6 +166,22 @@ if not exist .env copy .env.example .env
 
 Completa `SQL_SERVER_PASSWORD`, `KEYCLOAK_ADMIN_PASSWORD` y `KEYCLOAK_DEVELOPMENT_PASSWORD` con contraseñas locales diferentes. Para SQL usa una contraseña fuerte de al menos 12 caracteres, con mayúsculas, minúsculas, números y símbolos; evita punto y coma y comillas. Conserva los puertos predeterminados o ajústalos si están ocupados. Si `.env` ya existe, agrega únicamente las claves que falten. No lo publiques en Git.
 
+### Referencia de configuración de la API
+
+El archivo [appsettings.json](code/src/ProductInventory.Api/appsettings.json) muestra las claves de configuración y ejemplos para el entorno Docker de desarrollo. Contiene un marcador para la contraseña SQL y no incluye credenciales reales. Es una referencia: la API lee su configuración exclusivamente de variables de entorno y no utiliza los valores de este archivo. Cambiar el JSON no modifica la configuración de ejecución ni sustituye marcadores automáticamente.
+
+| Clave en JSON | Variable de entorno |
+|---|---|
+| `ConnectionStrings:Inventory` | `ConnectionStrings__Inventory` |
+| `Database:Initialize` | `Database__Initialize` |
+| `Identity:Authority` | `Identity__Authority` |
+| `Identity:MetadataAddress` | `Identity__MetadataAddress` |
+| `Identity:Audience` | `Identity__Audience` |
+| `Swagger:Enabled` | `Swagger__Enabled` |
+| `Swagger:ClientId` | `Swagger__ClientId` |
+
+Para ejecutar con Compose o desde su proyecto en Visual Studio, edita `code/.env`; `code/docker-compose.yml` construye la cadena de conexión y proporciona estas variables a la API. Los nombres `sqlserver` y `keycloak` del JSON son direcciones internas de Docker. Las contraseñas de administración y del usuario de Keycloak pertenecen al servicio de identidad y se configuran únicamente mediante `.env` y Compose.
+
 ### Restaurar y compilar con Docker Compose
 
 Los siguientes comandos funcionan en PowerShell y CMD:
@@ -220,6 +236,7 @@ Set-Location code
 docker compose --env-file .env up --build -d
 docker compose --env-file .env ps
 Invoke-WebRequest http://localhost:5181/health
+Start-Process 'http://localhost:5181/swagger/'
 ```
 
 ### Símbolo del sistema (CMD)
@@ -231,9 +248,10 @@ cd code
 docker compose --env-file .env up --build -d
 docker compose --env-file .env ps
 curl.exe -i http://localhost:5181/health
+start "" "http://localhost:5181/swagger/"
 ```
 
-Si ya estás en `code/`, omite el primer comando del bloque elegido. Ambos procedimientos inician la API, SQL Server y Keycloak. Si usas un script `.ps1`, ejecútalo con `code/` como directorio de trabajo y omite `Set-Location code`.
+Si ya estás en `code/`, omite el primer comando del bloque elegido. Ambos procedimientos inician la API, SQL Server y Keycloak, comprueban la salud y abren Swagger en el navegador predeterminado. Si usas un script `.ps1`, ejecútalo con `code/` como directorio de trabajo y omite `Set-Location code`.
 
 Compose espera a que SQL Server y Keycloak estén disponibles antes de iniciar la API. Con los puertos predeterminados, abre:
 
