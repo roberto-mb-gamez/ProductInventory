@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <IsPackable>false</IsPackable>
+    <RunSettingsFilePath Condition="Exists('$(MSBuildProjectDirectory)/../../integration.local.runsettings')">$(MSBuildProjectDirectory)/../../integration.local.runsettings</RunSettingsFilePath>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="coverlet.collector" />

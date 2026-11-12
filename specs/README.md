@@ -1,6 +1,6 @@
 # ProductInventory — Especificaciones funcionales v2
 
-**Estado:** Draft para revisión funcional. **Propósito:** base de análisis para una prueba técnica Senior; no contiene código ni decisiones de arquitectura.
+**Estado:** Borrador para revisión funcional. **Propósito:** base de análisis para una prueba técnica Senior; no contiene código ni decisiones de arquitectura.
 
 ## Alcance aprobado
 - Gestión CRUD de productos, categorías y proveedores.
@@ -24,5 +24,5 @@
 - El conjunto es intencionalmente pequeño: sin órdenes, compras, ventas, múltiples almacenes, movimientos históricos ni administración de usuarios.
 
 
-## v2.1 reconciliation
-UC-006 is now `UC-006_register_inventory_movement.md`. The technical assessment requires an InventoryMovements table. Product deletion is blocked when movement history exists. See `../constraints.md` and the repository README.
+## Conciliación de la versión 2.1
+UC-006 corresponde ahora a `UC-006_register_inventory_movement.md`. La prueba técnica exige una tabla InventoryMovements. La eliminación de productos se bloquea cuando existe historial de movimientos. Consulta `../constraints.md` y el README del repositorio.

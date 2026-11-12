@@ -1,0 +1,32 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-CU18-ubuntu-22.04@sha256:ea73825f3d88a23c355ac2f9fdc6bd960fec90171c12c572109b36a558f77bb8
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${SQL_SERVER_PASSWORD:?Set SQL_SERVER_PASSWORD in your environment}
+    ports:
+      - "${SQL_SERVER_PORT:-14333}:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' -b -o /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+  productinventory-api:
+    build:
+      context: ./code
+      dockerfile: src/ProductInventory.Api/Dockerfile
+    environment:
+      ASPNETCORE_HTTP_PORTS: "8080"
+      ConnectionStrings__Inventory: "Server=sqlserver;Database=ProductInventory;User ID=sa;Password=${SQL_SERVER_PASSWORD:?Set SQL_SERVER_PASSWORD in your environment};Encrypt=true;TrustServerCertificate=true;Connect Timeout=5"
+      Database__Initialize: "true"
+    ports:
+      - "${API_PORT:-5181}:8080"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+volumes:
+  sqlserver-data:

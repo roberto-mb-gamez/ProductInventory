@@ -4,3 +4,4 @@
 TestResults/
 .env
 *.user
+*.local.runsettings
