@@ -243,31 +243,6 @@ dotnet test tests/ProductInventory.IntegrationTests
 
 Hay cuatro proyectos de código fuente y tres de pruebas. Las pruebas de integración requieren SQL Server real y permiso CREATE DATABASE; la ausencia de conexión produce un fallo y no omite las pruebas de base de datos. Cada ejecución crea bases con nombres únicos y las conserva para inspección. No se reinicia ni elimina ninguna base existente. La suite contiene 20 pruebas de Domain, 23 de Application y 69 de integración. Los tests HTTP usan una identidad exclusiva del host de pruebas para comprobar negocio; no validan JWT ni necesitan Keycloak. La seguridad se revisa manualmente. Todos los proyectos de pruebas referencian Moq.
 
-### Cobertura y resultados de validación
-
-Desde `code/`, con la conexión de pruebas configurada, puedes generar cobertura y resultados TRX en PowerShell o CMD:
-
-```text
-dotnet test tests/ProductInventory.Domain.Tests --collect:"XPlat Code Coverage" --logger trx --results-directory TestResults/Domain
-dotnet test tests/ProductInventory.Application.Tests --collect:"XPlat Code Coverage" --logger trx --results-directory TestResults/Application
-dotnet test tests/ProductInventory.IntegrationTests --collect:"XPlat Code Coverage" --logger trx --results-directory TestResults/Integration
-```
-
-Los reportes `coverage.cobertura.xml` quedan en subcarpetas de `code/TestResults/`, ignoradas por Git. La solución incluye un proyecto `.dcproj`: para compilarla completa utiliza Visual Studio o su MSBuild con las herramientas de contenedores instaladas; los comandos `dotnet test` anteriores seleccionan directamente cada proyecto .NET.
-
-Validación original de 5.5 ejecutada el **2026-11-12**: restauración y compilación de la solución en Release correctas; **107/107 pruebas aprobadas**, sin fallos ni omisiones. Se repitieron seis escenarios de concurrencia, rollback y cancelación sobre SQL Server real, todos aprobados. Se verificó un Compose aislado con volúmenes nuevos, inicialización de las cuatro tablas, salud y Swagger.
-
-Después de la migración de writers a procedimientos, el mismo día pasaron **112/112 pruebas en Release**: 20 de Domain, 23 de Application y 69 de integración. Se verificaron actualización repetible de una base con el esquema anterior sin pérdida de datos, ejecución con permiso EXECUTE sin acceso directo a tablas, rollback del procedimiento invocado directamente y conservación de errores 400 para precios fuera de rango. Las pruebas existentes de stock, concurrencia, cancelación y contratos HTTP también pasaron. Compose instaló los diez procedimientos sobre la base existente conservando sus conteos de datos; salud y Swagger respondieron 200. La cobertura siguiente corresponde a esta versión posterior a la migración:
-
-| Capa | Cobertura de líneas combinada |
-|---|---|
-| Domain | 83.70% |
-| Application | 99.09% |
-| Infrastructure | 88.80% |
-| Api | 94.81% |
-| Total | 91.84% (619/674 líneas) |
-
-La cobertura combina las líneas C# ejecutadas por las tres suites, sin imponer un umbral. No mide líneas SQL de procedimientos, cuyo comportamiento se comprueba mediante integración. Los vacíos incluyen getters de entidades que ahora no utiliza el writer, rutas defensivas, respuestas de errores poco frecuentes, setters de modelos de lectura y transporte HTTPS fuera de Development. La comprobación separada contra Keycloak real durante 5.5 completó 57 verificaciones HTTP de Swagger, Authorization Code con PKCE, operaciones autenticadas y rechazo de tokens inválidos o expirados; estas comprobaciones no forman parte de la cobertura ni sustituyen una prueba visual automatizada del navegador. `403` no aplica al alcance actual, que no define roles ni políticas granulares. La trazabilidad de los [17 casos de uso](specs/traceability.md) distingue las pruebas de negocio de la validación de seguridad.
 ## Ejecución y depuración local
 
 ### PowerShell
