@@ -1,0 +1,71 @@
+{
+  "realm": "productinventory",
+  "enabled": true,
+  "displayName": "ProductInventory Development",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "loginWithEmailAllowed": false,
+  "accessTokenLifespan": 300,
+  "clients": [
+    {
+      "clientId": "productinventory-api",
+      "name": "ProductInventory API audience",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "bearerOnly": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false
+    },
+    {
+      "clientId": "productinventory-swagger",
+      "name": "ProductInventory Swagger PKCE",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": false,
+      "redirectUris": ["${SWAGGER_REDIRECT_URI}", "${SWAGGER_LOOPBACK_REDIRECT_URI}"],
+      "webOrigins": ["${SWAGGER_ORIGIN}", "${SWAGGER_LOOPBACK_ORIGIN}"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": ["profile", "email", "web-origins"],
+      "protocolMappers": [
+        {
+          "name": "productinventory-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "productinventory-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "inventory-developer",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Inventory",
+      "lastName": "Developer",
+      "email": "inventory-developer@example.test",
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${KEYCLOAK_DEVELOPMENT_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

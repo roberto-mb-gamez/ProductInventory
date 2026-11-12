@@ -1,11 +1,11 @@
 # Entorno de persistencia local
-El entorno de la etapa 5.2 contiene la API y SQL Server. Keycloak y las rutas HTTP funcionales quedan para etapas posteriores. Conserva los secretos en variables de entorno o en el archivo `.env` de la raíz, ignorado por Git; el `.env.example` incluido contiene únicamente valores de ejemplo para sustituir.
+El entorno incorpora API, SQL Server y Keycloak durante la etapa 5.3. Las rutas HTTP funcionales todavía no se implementan. La [guía de seguridad](keycloak/README.md) describe la revisión manual; la suite automatizada no depende de Keycloak. Conserva los secretos en variables de entorno o en el archivo `.env` de la raíz, ignorado por Git; el `.env.example` incluido contiene únicamente valores de ejemplo para sustituir.
 ## Docker Compose
 Desde la raíz del repositorio:
 ```powershell
 Copy-Item infra/.env.example .env
 ```
-Sustituye el marcador de contraseña en `.env` por una contraseña segura para desarrollo local. Utiliza una contraseña sin separadores de cadenas de conexión, como punto y coma o comillas. Después ejecuta:
+Si `.env` ya existe, conserva sus valores y agrega solo las variables nuevas de `.env.example`. Sustituye los marcadores de contraseña SQL, administrador de Keycloak y usuario de desarrollo por contraseñas locales diferentes. Utiliza una contraseña sin separadores de cadenas de conexión, como punto y coma o comillas. Después ejecuta:
 ```powershell
 docker compose --env-file .env up --build -d
 docker compose ps
@@ -18,7 +18,7 @@ Get-Command docker-credential-desktop
 ```
 Este cambio afecta únicamente a la terminal actual. El motor Linux de Docker debe estar funcionando; `docker version` debe mostrar Client y Server.
 La API se construye desde `code/src/ProductInventory.Api/Dockerfile`, con `code/` como contexto de construcción y `code/.dockerignore` como archivo de exclusiones. SQL Server utiliza la imagen verificada 2022 CU18 Ubuntu 22.04, fijada por su resumen de contenido (digest), y almacena datos en `sqlserver-data`. SQL se expone de forma predeterminada en el puerto 14333 del equipo, para evitar el puerto habitual del SQL Server local. La API espera la comprobación de disponibilidad de SQL e inicializa la base y el esquema antes de quedar accesible en el puerto 5181 del equipo. Un fallo de inicialización impide el arranque de la API. Conserva el volumen con nombre al detener el entorno; `docker compose down` detiene los servicios sin eliminarlo.
-Esta configuración es para desarrollo: utiliza la edición Developer, credenciales SA para crear la base y TrustServerCertificate en el entorno local. No configura identidad de producción, credenciales de despliegue con privilegios mínimos ni Keycloak. Las imágenes del SDK y del entorno de ejecución de .NET usan etiquetas 9.0; el digest de la imagen SQL está fijado.
+Esta configuración es para desarrollo: utiliza la edición Developer, credenciales SA para crear la base y TrustServerCertificate en el entorno local. Keycloak utiliza start-dev y almacenamiento embebido persistente para esta evaluación; no se configura identidad de producción ni credenciales de despliegue con privilegios mínimos. Las imágenes del SDK y del entorno de ejecución de .NET usan etiquetas 9.0; el digest de la imagen SQL está fijado.
 ## Variables de entorno
 | Variable | Propósito | Valor predeterminado |
 |---|---|---|
@@ -28,6 +28,13 @@ Esta configuración es para desarrollo: utiliza la edición Developer, credencia
 | ConnectionStrings__Inventory | Cadena de conexión SQL de la API | Sin conexión; solo salud del proceso |
 | Database__Initialize | Crear la base indicada si no existe e inicializar el esquema antes de servir HTTP | false; Compose establece true |
 | ASPNETCORE_URLS / ASPNETCORE_HTTP_PORTS | Dirección o puerto de escucha de la API | Se establece en la terminal local o el contenedor |
+| KEYCLOAK_ADMIN_PASSWORD | Contraseña local de administración de Keycloak | Requerida por Compose |
+| KEYCLOAK_DEVELOPMENT_PASSWORD | Contraseña del usuario inventory-developer | Requerida por Compose |
+| KEYCLOAK_PORT | Puerto público de Keycloak | 8081 |
+| Identity__Authority | Emisor público que debe coincidir con iss del token | Requerido para iniciar la API |
+| Identity__MetadataAddress | Discovery interno en Docker o público en depuración local | Derivado del emisor si se omite |
+| Identity__Audience | Audiencia válida de la API | Requerida; Compose usa productinventory-api |
+| Swagger__Enabled / Swagger__ClientId | Habilitación de Swagger y cliente público PKCE | false / requerido al habilitar Swagger |
 | PRODUCTINVENTORY_TEST_CONNECTION_STRING | Conexión SQL con permiso de creación de bases para las pruebas de integración | Requerida para ejecutar pruebas de base de datos |
 Para depurar la API localmente, establece ConnectionStrings__Inventory y Database__Initialize en el entorno del depurador y selecciona ProductInventory.Api como proyecto de inicio. Para conectarte al servicio SQL de Compose desde el equipo, utiliza `Server=localhost,14333;Database=ProductInventory;User ID=sa;Password=<local-password>;Encrypt=true;TrustServerCertificate=true`.
 ## Esquema y permisos
@@ -54,3 +61,5 @@ El proyecto de integración establece RunSettingsFilePath de forma condicional p
 RunSettingsFilePath y EnvironmentVariables están documentados en la [guía de runsettings de Microsoft](https://learn.microsoft.com/visualstudio/test/configure-unit-tests-by-using-a-dot-runsettings-file). Para seleccionar el archivo manualmente, utiliza Test > Configure Run Settings > Select Solution Wide runsettings File, o sus equivalentes en la interfaz traducida de Visual Studio. Comando equivalente desde code/: `dotnet test tests/ProductInventory.IntegrationTests --settings integration.local.runsettings`.
 Validación inicial: 28 pruebas de integración sobre SQL Server local 15.0.2210.4; inicialización del esquema, restricciones referenciales, de unicidad y de validación, proyecciones relacionales EF, existencias iniciales en cero, atomicidad IN/OUT, existencias insuficientes, desbordamiento de enteros, rollback, cancelación, entradas y salidas concurrentes, historial inmutable, creación de la base durante el arranque y salud SQL. Los proyectos unitarios de Domain y Application todavía no contienen pruebas.
 La validación en contenedores terminó el 2026-11-12: la construcción del Dockerfile y el arranque de Compose fueron satisfactorios; SQL Server 16.0.4185.3 está saludable, la base de la aplicación contiene las cuatro tablas esperadas y http://localhost:5181/health devuelve 200 Healthy. Las 29 pruebas de integración pasaron contra SQL Server del contenedor, incluida una prueba de regresión de ASPNETCORE_HTTP_PORTS. La configuración de entorno de la API conserva el reconocimiento del prefijo ASPNETCORE_ para que el contenedor escuche en el puerto 8080. Los bloqueos anteriores del motor Docker y del auxiliar de credenciales quedaron resueltos para esta validación. El `.env` local contiene una contraseña de desarrollo generada, está ignorado por Git y debe permanecer sin seguimiento.
+
+Las 29 pruebas existentes también se verificaron con Keycloak detenido. Los únicos requisitos de las pruebas de persistencia siguen siendo SQL Server y su conexión de pruebas; inicia solo SQL con `docker compose up -d sqlserver` si no vas a ejecutar la aplicación. La configuración del Explorador de pruebas no contiene credenciales ni conexiones de Keycloak. Los casos de login, tokens y PKCE se revisan manualmente según `keycloak/README.md`.

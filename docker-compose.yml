@@ -1,4 +1,29 @@
 services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.2@sha256:723b1d6e254c0fc96d5cffec860c7e0744d6a3277822b865bb538cf891575e41
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-development-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in your environment}
+      KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-8081}
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HEALTH_ENABLED: "true"
+      KEYCLOAK_DEVELOPMENT_PASSWORD: ${KEYCLOAK_DEVELOPMENT_PASSWORD:?Set KEYCLOAK_DEVELOPMENT_PASSWORD in your environment}
+      SWAGGER_REDIRECT_URI: http://localhost:${API_PORT:-5181}/swagger/oauth2-redirect.html
+      SWAGGER_LOOPBACK_REDIRECT_URI: http://127.0.0.1:${API_PORT:-5181}/swagger/oauth2-redirect.html
+      SWAGGER_ORIGIN: http://localhost:${API_PORT:-5181}
+      SWAGGER_LOOPBACK_ORIGIN: http://127.0.0.1:${API_PORT:-5181}
+    ports:
+      - "${KEYCLOAK_PORT:-8081}:8080"
+    volumes:
+      - ./infra/keycloak/productinventory-realm.json:/opt/keycloak/data/import/productinventory-realm.json:ro
+      - keycloak-data:/opt/keycloak/data
+    healthcheck:
+      test: ["CMD", "bash", "-c", "{ printf 'HEAD /health/ready HTTP/1.0\\r\\n\\r\\n' >&0; grep 'HTTP/1.0 200'; } 0<>/dev/tcp/localhost/9000"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 30s
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-CU18-ubuntu-22.04@sha256:ea73825f3d88a23c355ac2f9fdc6bd960fec90171c12c572109b36a558f77bb8
     environment:
@@ -21,6 +46,12 @@ services:
       dockerfile: src/ProductInventory.Api/Dockerfile
     environment:
       ASPNETCORE_HTTP_PORTS: "8080"
+      ASPNETCORE_ENVIRONMENT: Development
+      Identity__Authority: http://localhost:${KEYCLOAK_PORT:-8081}/realms/productinventory
+      Identity__MetadataAddress: http://keycloak:8080/realms/productinventory/.well-known/openid-configuration
+      Identity__Audience: productinventory-api
+      Swagger__ClientId: productinventory-swagger
+      Swagger__Enabled: "true"
       ConnectionStrings__Inventory: "Server=sqlserver;Database=ProductInventory;User ID=sa;Password=${SQL_SERVER_PASSWORD:?Set SQL_SERVER_PASSWORD in your environment};Encrypt=true;TrustServerCertificate=true;Connect Timeout=5"
       Database__Initialize: "true"
     ports:
@@ -28,5 +59,8 @@ services:
     depends_on:
       sqlserver:
         condition: service_healthy
+      keycloak:
+        condition: service_healthy
 volumes:
   sqlserver-data:
+  keycloak-data:
