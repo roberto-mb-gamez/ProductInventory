@@ -6,7 +6,7 @@ Authority: assessment > approved functional specs > accepted ADRs > architectura
 
 ## Approved stack
 - Target `net9.0`; ASP.NET Core 9 Minimal APIs; four source projects: Api, Application, Domain, Infrastructure.
-- Manual CQRS; no MediatR or custom mediator. Queries use EF Core 9; business writes use Dapper and parameterized SQL. One SQL Server database.
+- Manual CQRS; no MediatR or custom mediator. Queries use EF Core 9; business writes use Dapper with parameterized stored procedure calls. Version procedure definitions in Infrastructure/Persistence/Schema; the inventory procedure owns the movement transaction. One SQL Server database.
 - Keycloak OAuth2/OIDC and JWT bearer; validate issuer, audience, signature and expiration. Swagger Authorization Code + PKCE; all business routes protected.
 - Docker Compose runs API, SQL Server and Keycloak; include reproducible schema and dev realm setup.
 - xUnit + Moq for unit tests; WebApplicationFactory and real SQL Server for integration tests.

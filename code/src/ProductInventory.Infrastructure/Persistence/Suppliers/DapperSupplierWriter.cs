@@ -1,4 +1,5 @@
 using Dapper;
+using System.Data;
 using Microsoft.Data.SqlClient;
 using ProductInventory.Application.Suppliers;
 using ProductInventory.Application.Errors;
@@ -8,23 +9,21 @@ public sealed class DapperSupplierWriter(SqlConnectionFactory connections) : ISu
 {
     public async Task<SupplierDto> CreateAsync(Supplier supplier, CancellationToken cancellationToken = default)
     {
-        const string sql = "INSERT dbo.Suppliers(Id,Name,ContactEmail) OUTPUT inserted.Id,inserted.Name,inserted.ContactEmail VALUES(@Id,@Name,@ContactEmail);";
 
-        return await SaveAsync(sql, supplier, cancellationToken) ?? throw new InvalidOperationException("The inserted supplier was not returned.");
+        return await SaveAsync("dbo.Supplier_Create", supplier, cancellationToken) ?? throw new InvalidOperationException("The inserted supplier was not returned.");
     }
     public Task<SupplierDto?> UpdateAsync(Supplier supplier, CancellationToken cancellationToken = default)
     {
-        const string sql = "UPDATE dbo.Suppliers SET Name=@Name,ContactEmail=@ContactEmail OUTPUT inserted.Id,inserted.Name,inserted.ContactEmail WHERE Id=@Id;";
 
-        return SaveAsync(sql, supplier, cancellationToken);
+        return SaveAsync("dbo.Supplier_Update", supplier, cancellationToken);
     }
-    private async Task<SupplierDto?> SaveAsync(string sql, Supplier supplier, CancellationToken cancellationToken)
+    private async Task<SupplierDto?> SaveAsync(string procedure, Supplier supplier, CancellationToken cancellationToken)
     {
         await using var connection = await connections.OpenAsync(cancellationToken);
         try
         {
 
-            return await connection.QuerySingleOrDefaultAsync<SupplierDto>(new CommandDefinition(sql, supplier, cancellationToken: cancellationToken));
+            return await connection.QuerySingleOrDefaultAsync<SupplierDto>(new CommandDefinition(procedure, supplier, commandType: CommandType.StoredProcedure, cancellationToken: cancellationToken));
         }
         catch (SqlException exception) when (exception.Number == 1205)
         {
@@ -37,7 +36,7 @@ public sealed class DapperSupplierWriter(SqlConnectionFactory connections) : ISu
         try
         {
 
-            return await connection.ExecuteAsync(new CommandDefinition("DELETE dbo.Suppliers WHERE Id=@Id;", new { Id = id }, cancellationToken: cancellationToken)) != 0;
+            return await connection.ExecuteScalarAsync<bool>(new CommandDefinition("dbo.Supplier_Delete", new { Id = id }, commandType: CommandType.StoredProcedure, cancellationToken: cancellationToken));
         }
         catch (SqlException exception) when (exception.Number is 547 or 1205)
         {

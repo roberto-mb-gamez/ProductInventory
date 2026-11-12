@@ -145,4 +145,21 @@ public sealed class ProductApiTests(SqlServerFixture database)
 
         return new($"SKU-{Guid.NewGuid():N}", "Product", null, 10, categoryId, supplierId);
     }
+    [Theory]
+    [InlineData("1000000000000000")]
+    [InlineData("79228162514264337593543950335")]
+    public async Task UC001AndUC004RejectPriceOverflowWithoutChangingData(string price)
+    {
+        var id = await database.CreateProductAsync();
+        var input = (await NewInputAsync()) with { Price = decimal.Parse(price, System.Globalization.CultureInfo.InvariantCulture) };
+        await using var factory = new BusinessApiFactory(database.ConnectionString);
+        using var client = factory.CreateClient();
+        using var creation = await client.PostAsJsonAsync("/api/products", input);
+        using var update = await client.PutAsJsonAsync($"/api/products/{id}", input);
+        Assert.Equal(HttpStatusCode.BadRequest, creation.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, update.StatusCode);
+        await using var connection = await database.Connections.OpenAsync();
+        Assert.Equal(0, await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM dbo.Products WHERE Sku=@Sku", new { input.Sku }));
+        Assert.Equal(12.3456m, await connection.ExecuteScalarAsync<decimal>("SELECT Price FROM dbo.Products WHERE Id=@Id", new { Id = id }));
+    }
 }

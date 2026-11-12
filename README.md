@@ -15,7 +15,7 @@ Comprueba la instalación con `docker --version` y `docker compose version`; par
 
 - [ASP.NET Core 9 — Minimal APIs](https://learn.microsoft.com/aspnet/core/fundamentals/minimal-apis/overview?view=aspnetcore-9.0): API REST sobre .NET 9.
 - [Entity Framework Core 9](https://learn.microsoft.com/ef/core/): consultas y proyecciones de solo lectura.
-- [Dapper](https://github.com/DapperLib/Dapper#readme): escrituras con SQL parametrizado y transacciones.
+- [Dapper](https://github.com/DapperLib/Dapper#readme): llamadas parametrizadas a procedimientos almacenados para escrituras.
 - [SQL Server 2022](https://learn.microsoft.com/sql/sql-server/?view=sql-server-ver16): base de datos relacional.
 - [Microsoft.Data.SqlClient](https://learn.microsoft.com/sql/connect/ado-net/introduction-microsoft-data-sqlclient-namespace): conexiones ADO.NET a SQL Server.
 - [Keycloak 26.8.2](https://www.keycloak.org/documentation): proveedor de identidad OAuth2/OpenID Connect.
@@ -121,14 +121,31 @@ flowchart LR
     Api --> Handler[Application: handler del caso de uso]
     Handler --> Port[Interfaz de persistencia de Application]
     Port --> Read[Infrastructure: consulta con EF Core]
-    Port --> Write[Infrastructure: escritura con Dapper]
+    Port --> Write[Infrastructure: Dapper y procedimientos]
     Read --> Database[(SQL Server)]
     Write --> Database
 ```
 
 El diagrama muestra el flujo de ejecución. La dependencia de código se mantiene hacia el interior: Infrastructure implementa las interfaces de Application, y Application depende únicamente de Domain. Los handlers coordinan las operaciones y utilizan las entidades del dominio para aplicar las reglas de negocio.
 
-Por ejemplo, al registrar una salida de inventario, el handler valida la solicitud y delega la persistencia en Infrastructure. Dapper actualiza las existencias de forma condicional e inserta el movimiento en una misma transacción. Si no hay existencias suficientes o falla el registro, no se guarda ninguno de los dos cambios. Las operaciones concurrentes tampoco pueden dejar existencias negativas ni perder actualizaciones.
+Por ejemplo, al registrar una salida de inventario, el handler valida la solicitud y delega la persistencia en Infrastructure. El writer invoca mediante Dapper el procedimiento `dbo.InventoryMovement_Register`, que actualiza las existencias de forma condicional e inserta el movimiento en una misma transacción. El procedimiento controla el commit/rollback y registra la fecha UTC; el writer traduce el resultado al contrato de Application. Si no hay existencias suficientes o falla el registro, no se guarda ninguno de los dos cambios. Las operaciones concurrentes tampoco pueden dejar existencias negativas ni perder actualizaciones.
+
+### Procedimientos de escritura
+
+Los cuatro writers utilizan `CommandType.StoredProcedure`; las lecturas conservan EF Core. Las definiciones SQL están versionadas y embebidas en `code/src/ProductInventory.Infrastructure/Persistence/Schema/`:
+
+| Operación | Procedimientos |
+|---|---|
+| Categorías | `Category_Create`, `Category_Update`, `Category_Delete` |
+| Proveedores | `Supplier_Create`, `Supplier_Update`, `Supplier_Delete` |
+| Productos | `Product_Create`, `Product_Update`, `Product_Delete` |
+| Movimientos | `InventoryMovement_Register` |
+
+Todos pertenecen al esquema `dbo`. Las creaciones y actualizaciones devuelven las columnas de sus DTO; los borrados devuelven un booleano escalar. El procedimiento de movimientos devuelve el movimiento confirmado y un parámetro de salida con el resultado de la operación.
+
+Con `Database__Initialize=true`, la aplicación aplica los scripts en orden de nombre dentro de una transacción y conserva el bloqueo de inicialización hasta terminar. `001_initial.sql` prepara las tablas y los scripts siguientes instalan o actualizan los diez procedimientos con `CREATE OR ALTER`, sin eliminar los datos existentes. Al reconstruir e iniciar Compose se realiza este paso automáticamente. Si deshabilitas la inicialización, despliega previamente todos los scripts, no solo `001_initial.sql`.
+
+Despliega los procedimientos junto con la versión de la aplicación que los utiliza. La inicialización requiere permisos DDL; una instancia con base preparada necesita `SELECT` para EF y `EXECUTE` sobre los procedimientos utilizados. El Compose de desarrollo conserva su configuración actual de permisos. Esta separación permite reutilización y ajustes futuros; no implica una mejora de rendimiento medida. La decisión se documenta en [ADR-002](docs/adr/ADR-002-cqrs-persistence.md) y [ADR-003](docs/adr/ADR-003-domain-and-inventory.md).
 
 ### Funciones incluidas
 
@@ -224,7 +241,7 @@ dotnet test tests/ProductInventory.IntegrationTests
 
 `dotnet test` restaura y compila los proyectos de pruebas antes de ejecutarlos. Si existe `code/integration.local.runsettings`, su conexión tiene prioridad sobre la variable de la terminal; actualízala para que apunte al SQL Server del contenedor.
 
-Hay cuatro proyectos de código fuente y tres de pruebas. Las pruebas de integración requieren SQL Server real y permiso CREATE DATABASE; la ausencia de conexión produce un fallo y no omite las pruebas de base de datos. Cada ejecución crea bases con nombres únicos y las conserva para inspección. No se reinicia ni elimina ninguna base existente. La suite contiene 20 pruebas de Domain, 23 de Application y 64 de integración. Los tests HTTP usan una identidad exclusiva del host de pruebas para comprobar negocio; no validan JWT ni necesitan Keycloak. La seguridad se revisa manualmente. Todos los proyectos de pruebas referencian Moq.
+Hay cuatro proyectos de código fuente y tres de pruebas. Las pruebas de integración requieren SQL Server real y permiso CREATE DATABASE; la ausencia de conexión produce un fallo y no omite las pruebas de base de datos. Cada ejecución crea bases con nombres únicos y las conserva para inspección. No se reinicia ni elimina ninguna base existente. La suite contiene 20 pruebas de Domain, 23 de Application y 69 de integración. Los tests HTTP usan una identidad exclusiva del host de pruebas para comprobar negocio; no validan JWT ni necesitan Keycloak. La seguridad se revisa manualmente. Todos los proyectos de pruebas referencian Moq.
 
 ### Cobertura y resultados de validación
 
@@ -238,17 +255,19 @@ dotnet test tests/ProductInventory.IntegrationTests --collect:"XPlat Code Covera
 
 Los reportes `coverage.cobertura.xml` quedan en subcarpetas de `code/TestResults/`, ignoradas por Git. La solución incluye un proyecto `.dcproj`: para compilarla completa utiliza Visual Studio o su MSBuild con las herramientas de contenedores instaladas; los comandos `dotnet test` anteriores seleccionan directamente cada proyecto .NET.
 
-Validación ejecutada el **2026-11-12**: restauración y compilación de la solución en Release correctas; **107/107 pruebas aprobadas**, sin fallos ni omisiones. Se repitieron seis escenarios de concurrencia, rollback y cancelación sobre SQL Server real, todos aprobados. Se verificó un Compose aislado con volúmenes nuevos, inicialización de las cuatro tablas, salud y Swagger.
+Validación original de 5.5 ejecutada el **2026-11-12**: restauración y compilación de la solución en Release correctas; **107/107 pruebas aprobadas**, sin fallos ni omisiones. Se repitieron seis escenarios de concurrencia, rollback y cancelación sobre SQL Server real, todos aprobados. Se verificó un Compose aislado con volúmenes nuevos, inicialización de las cuatro tablas, salud y Swagger.
+
+Después de la migración de writers a procedimientos, el mismo día pasaron **112/112 pruebas en Release**: 20 de Domain, 23 de Application y 69 de integración. Se verificaron actualización repetible de una base con el esquema anterior sin pérdida de datos, ejecución con permiso EXECUTE sin acceso directo a tablas, rollback del procedimiento invocado directamente y conservación de errores 400 para precios fuera de rango. Las pruebas existentes de stock, concurrencia, cancelación y contratos HTTP también pasaron. Compose instaló los diez procedimientos sobre la base existente conservando sus conteos de datos; salud y Swagger respondieron 200. La cobertura siguiente corresponde a esta versión posterior a la migración:
 
 | Capa | Cobertura de líneas combinada |
 |---|---|
-| Domain | 97.83% |
+| Domain | 83.70% |
 | Application | 99.09% |
-| Infrastructure | 89.02% |
+| Infrastructure | 88.80% |
 | Api | 94.81% |
-| Total | 93.75% (645/688 líneas) |
+| Total | 91.84% (619/674 líneas) |
 
-La cobertura combina las líneas ejecutadas por las tres suites, sin imponer un umbral. Los vacíos incluyen rutas defensivas, respuestas de errores poco frecuentes, setters de modelos de lectura y transporte HTTPS fuera de Development. La comprobación separada contra Keycloak real completó 57 verificaciones HTTP de Swagger, Authorization Code con PKCE, operaciones autenticadas y rechazo de tokens inválidos o expirados; estas comprobaciones no forman parte de la cobertura ni sustituyen una prueba visual automatizada del navegador. `403` no aplica al alcance actual, que no define roles ni políticas granulares. La trazabilidad de los [17 casos de uso](specs/traceability.md) distingue las pruebas de negocio de la validación de seguridad.
+La cobertura combina las líneas C# ejecutadas por las tres suites, sin imponer un umbral. No mide líneas SQL de procedimientos, cuyo comportamiento se comprueba mediante integración. Los vacíos incluyen getters de entidades que ahora no utiliza el writer, rutas defensivas, respuestas de errores poco frecuentes, setters de modelos de lectura y transporte HTTPS fuera de Development. La comprobación separada contra Keycloak real durante 5.5 completó 57 verificaciones HTTP de Swagger, Authorization Code con PKCE, operaciones autenticadas y rechazo de tokens inválidos o expirados; estas comprobaciones no forman parte de la cobertura ni sustituyen una prueba visual automatizada del navegador. `403` no aplica al alcance actual, que no define roles ni políticas granulares. La trazabilidad de los [17 casos de uso](specs/traceability.md) distingue las pruebas de negocio de la validación de seguridad.
 ## Ejecución y depuración local
 
 ### PowerShell

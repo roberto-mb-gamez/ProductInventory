@@ -1,4 +1,5 @@
 using Dapper;
+using System.Data;
 using Microsoft.Data.SqlClient;
 using ProductInventory.Application.Products;
 using ProductInventory.Application.Errors;
@@ -7,22 +8,17 @@ using ProductInventory.Domain.Products;
 namespace ProductInventory.Infrastructure.Persistence.Products;
 public sealed class DapperProductWriter(SqlConnectionFactory connections) : IProductWriter
 {
-    private const string OutputColumns = " OUTPUT inserted.Id,inserted.Sku,inserted.Name,inserted.Description,inserted.Price,inserted.StockQuantity,inserted.CategoryId,inserted.SupplierId ";
     public async Task<ProductDto> CreateAsync(Product product, CancellationToken cancellationToken = default)
     {
-        const string sql = "INSERT dbo.Products(Id,Sku,Name,Description,Price,CategoryId,SupplierId)" + OutputColumns
-            + "VALUES(@Id,@Sku,@Name,@Description,@Price,@CategoryId,@SupplierId);";
 
-        return await SaveAsync(sql, product, cancellationToken) ?? throw new InvalidOperationException("The inserted product was not returned.");
+        return await SaveAsync("dbo.Product_Create", product, cancellationToken) ?? throw new InvalidOperationException("The inserted product was not returned.");
     }
     public Task<ProductDto?> UpdateAsync(Product product, CancellationToken cancellationToken = default)
     {
-        const string sql = "UPDATE dbo.Products SET Sku=@Sku,Name=@Name,Description=@Description,Price=@Price,CategoryId=@CategoryId,SupplierId=@SupplierId"
-            + OutputColumns + "WHERE Id=@Id;";
 
-        return SaveAsync(sql, product, cancellationToken);
+        return SaveAsync("dbo.Product_Update", product, cancellationToken);
     }
-    private async Task<ProductDto?> SaveAsync(string sql, Product product, CancellationToken cancellationToken)
+    private async Task<ProductDto?> SaveAsync(string procedure, Product product, CancellationToken cancellationToken)
     {
         var data = product.Data;
         var parameters = new { product.Id, data.Sku, data.Name, data.Description, data.Price, data.CategoryId, data.SupplierId };
@@ -30,7 +26,7 @@ public sealed class DapperProductWriter(SqlConnectionFactory connections) : IPro
         try
         {
 
-            return await connection.QuerySingleOrDefaultAsync<ProductDto>(new CommandDefinition(sql, parameters, cancellationToken: cancellationToken));
+            return await connection.QuerySingleOrDefaultAsync<ProductDto>(new CommandDefinition(procedure, parameters, commandType: CommandType.StoredProcedure, cancellationToken: cancellationToken));
         }
         catch (SqlException exception) when (exception.Number is 2601 or 2627 or 547 or 8115 or 1205)
         {
@@ -53,7 +49,7 @@ public sealed class DapperProductWriter(SqlConnectionFactory connections) : IPro
         try
         {
 
-            return await connection.ExecuteAsync(new CommandDefinition("DELETE dbo.Products WHERE Id=@Id;", new { Id = id }, cancellationToken: cancellationToken)) != 0;
+            return await connection.ExecuteScalarAsync<bool>(new CommandDefinition("dbo.Product_Delete", new { Id = id }, commandType: CommandType.StoredProcedure, cancellationToken: cancellationToken));
         }
         catch (SqlException exception) when (exception.Number is 547 or 1205)
         {

@@ -1,4 +1,5 @@
 using Dapper;
+using System.Data;
 using Microsoft.Data.SqlClient;
 using ProductInventory.Application.Categories;
 using ProductInventory.Application.Errors;
@@ -8,23 +9,21 @@ public sealed class DapperCategoryWriter(SqlConnectionFactory connections) : ICa
 {
     public async Task<CategoryDto> CreateAsync(Category category, CancellationToken cancellationToken = default)
     {
-        const string sql = "INSERT dbo.Categories(Id,Name,Description) OUTPUT inserted.Id,inserted.Name,inserted.Description VALUES(@Id,@Name,@Description);";
 
-        return await SaveAsync(sql, category, cancellationToken) ?? throw new InvalidOperationException("The inserted category was not returned.");
+        return await SaveAsync("dbo.Category_Create", category, cancellationToken) ?? throw new InvalidOperationException("The inserted category was not returned.");
     }
     public Task<CategoryDto?> UpdateAsync(Category category, CancellationToken cancellationToken = default)
     {
-        const string sql = "UPDATE dbo.Categories SET Name=@Name,Description=@Description OUTPUT inserted.Id,inserted.Name,inserted.Description WHERE Id=@Id;";
 
-        return SaveAsync(sql, category, cancellationToken);
+        return SaveAsync("dbo.Category_Update", category, cancellationToken);
     }
-    private async Task<CategoryDto?> SaveAsync(string sql, Category category, CancellationToken cancellationToken)
+    private async Task<CategoryDto?> SaveAsync(string procedure, Category category, CancellationToken cancellationToken)
     {
         await using var connection = await connections.OpenAsync(cancellationToken);
         try
         {
 
-            return await connection.QuerySingleOrDefaultAsync<CategoryDto>(new CommandDefinition(sql, category, cancellationToken: cancellationToken));
+            return await connection.QuerySingleOrDefaultAsync<CategoryDto>(new CommandDefinition(procedure, category, commandType: CommandType.StoredProcedure, cancellationToken: cancellationToken));
         }
         catch (SqlException exception) when (exception.Number is 2601 or 2627 or 1205)
         {
@@ -37,7 +36,7 @@ public sealed class DapperCategoryWriter(SqlConnectionFactory connections) : ICa
         try
         {
 
-            return await connection.ExecuteAsync(new CommandDefinition("DELETE dbo.Categories WHERE Id=@Id;", new { Id = id }, cancellationToken: cancellationToken)) != 0;
+            return await connection.ExecuteScalarAsync<bool>(new CommandDefinition("dbo.Category_Delete", new { Id = id }, commandType: CommandType.StoredProcedure, cancellationToken: cancellationToken));
         }
         catch (SqlException exception) when (exception.Number is 547 or 1205)
         {

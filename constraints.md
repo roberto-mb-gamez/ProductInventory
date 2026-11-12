@@ -31,7 +31,7 @@ Status: Approved — Architecture v2.2
 
 ## Approved architecture and technology choices
 - **A-001**: Single deployable API; four source projects: Api, Application, Domain, Infrastructure (ADR-001).
-- **A-002**: Manual CQRS; EF Core 9 for queries, Dapper for commands, one SQL Server DB, no MediatR (ADR-002).
+- **A-002**: Manual CQRS; EF Core 9 for queries, Dapper with parameterized stored procedure calls for commands, one SQL Server DB, no MediatR (ADR-002; writer procedure migration explicitly authorized on 2026-11-12).
 - **A-003**: Domain independent of infrastructure; intent-specific persistence ports; no mandatory generic repository (ADR-001/002).
 - **A-004**: Product, Category, Supplier, StockMovement; transactional, concurrency-safe movements (ADR-003).
 - **A-005**: ASP.NET Core 9 Minimal APIs, `net9.0` (ADR-005).
