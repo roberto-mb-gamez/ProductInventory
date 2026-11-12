@@ -1,0 +1,46 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+actor "Administrador de Inventario" as Admin
+rectangle "ProductInventory" {
+  usecase "Registrar producto" as UC001
+  usecase "Consultar producto" as UC002
+  usecase "Listar productos con filtros" as UC003
+  usecase "Actualizar producto" as UC004
+  usecase "Eliminar producto" as UC005
+  usecase "Registrar movimiento de inventario" as UC006
+  usecase "Acceder a API protegida" as UC007
+  usecase "Crear categoría" as UC008
+  usecase "Consultar categoría" as UC009
+  usecase "Listar categorías" as UC010
+  usecase "Actualizar categoría" as UC011
+  usecase "Eliminar categoría" as UC012
+  usecase "Crear proveedor" as UC013
+  usecase "Consultar proveedor" as UC014
+  usecase "Listar proveedores" as UC015
+  usecase "Actualizar proveedor" as UC016
+  usecase "Eliminar proveedor" as UC017
+}
+Admin --> UC001
+Admin --> UC002
+Admin --> UC003
+Admin --> UC004
+Admin --> UC005
+Admin --> UC006
+Admin --> UC008
+Admin --> UC009
+Admin --> UC010
+Admin --> UC011
+Admin --> UC012
+Admin --> UC013
+Admin --> UC014
+Admin --> UC015
+Admin --> UC016
+Admin --> UC017
+Admin --> UC007
+note right of UC007
+  Requisito transversal:
+  token OAuth2 válido para todos
+  los endpoints de negocio.
+end note
+@enduml
