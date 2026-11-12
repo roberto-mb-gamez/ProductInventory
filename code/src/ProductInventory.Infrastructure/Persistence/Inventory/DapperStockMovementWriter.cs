@@ -42,11 +42,16 @@ public sealed class DapperStockMovementWriter(SqlConnectionFactory connections) 
 
             return await GetFailureAsync(connection, transaction, request, cancellationToken);
         }
-        var movement = new StockMovementDto(Guid.NewGuid(), request.ProductId, request.Type, request.Quantity,
-            DateTimeOffset.UtcNow, balance.StockBefore, balance.StockAfter);
+        var movement = CreateMovement(request, balance);
         await InsertMovementAsync(connection, transaction, movement, cancellationToken);
 
         return new MovementWriteResult(MovementWriteStatus.Created, movement);
+    }
+    private static StockMovementDto CreateMovement(RegisterMovementRequest request, StockBalance balance)
+    {
+        var movement = new StockMovement(new(request.ProductId, request.Type, request.Quantity), balance.StockBefore);
+
+        return new(movement.Id, movement.ProductId, movement.Type, movement.Quantity, movement.OccurredAt, movement.StockBefore, movement.StockAfter);
     }
     private static Task<StockBalance?> UpdateStockAsync(SqlConnection connection, SqlTransaction transaction, RegisterMovementRequest request, CancellationToken cancellationToken)
     {

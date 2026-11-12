@@ -2,6 +2,12 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using ProductInventory.Api;
+using Microsoft.Extensions.DependencyInjection;
+using Moq;
+using ProductInventory.Application.Categories;
+using ProductInventory.Application.Suppliers;
+using ProductInventory.Application.Products;
+using ProductInventory.Application.Inventory;
 namespace ProductInventory.IntegrationTests.Health;
 public sealed class HealthApiFactory : WebApplicationFactory<Program>
 {
@@ -16,5 +22,15 @@ public sealed class HealthApiFactory : WebApplicationFactory<Program>
             ["Database:Initialize"] = "false",
             ["Swagger:Enabled"] = "false"
         }));
+        builder.ConfigureServices(services =>
+        {
+            services.AddSingleton(Mock.Of<ICategoryReader>());
+            services.AddSingleton(Mock.Of<ICategoryWriter>());
+            services.AddSingleton(Mock.Of<ISupplierReader>());
+            services.AddSingleton(Mock.Of<ISupplierWriter>());
+            services.AddSingleton(Mock.Of<IProductReader>());
+            services.AddSingleton(Mock.Of<IProductWriter>());
+            services.AddSingleton(Mock.Of<IStockMovementWriter>());
+        });
     }
 }

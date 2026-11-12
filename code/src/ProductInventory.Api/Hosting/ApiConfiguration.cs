@@ -1,5 +1,7 @@
 using ProductInventory.Api.Documentation;
 using ProductInventory.Api.Security;
+using ProductInventory.Api.Errors;
+using Microsoft.AspNetCore.Routing;
 using ProductInventory.Infrastructure;
 using ProductInventory.Infrastructure.Persistence;
 namespace ProductInventory.Api.Hosting;
@@ -11,6 +13,10 @@ public static class ApiConfiguration
         builder.Configuration.AddEnvironmentVariables();
         builder.Configuration.AddEnvironmentVariables("ASPNETCORE_");
         builder.Services.AddHealthChecks();
+        builder.Services.AddProblemDetails();
+        builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+        builder.Services.Configure<RouteHandlerOptions>(options => options.ThrowOnBadRequest = true);
+        builder.Services.AddApplicationHandlers();
         builder.Services.AddApiSecurity();
         builder.Services.AddApiDocumentation();
         ConfigurePersistence(builder);

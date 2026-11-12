@@ -1,10 +1,10 @@
 # UC-015 — Listar proveedores
 
-**Status:** Draft  
-**Actor:** Administrador de Inventario (cliente autenticado)  
-**Goal:** Listar proveedores.  
-**Linked requirements:** FR-016; NFR-001, NFR-004, NFR-006  
-**Business rules:** BR-021  
+**Status:** Draft
+**Actor:** Administrador de Inventario (cliente autenticado)
+**Goal:** Listar proveedores.
+**Linked requirements:** FR-016; NFR-001, NFR-004, NFR-006
+**Business rules:** BR-020, BR-021
 **Endpoint propuesto:** `GET /api/suppliers`
 
 ## Preconditions
@@ -12,16 +12,17 @@
 - El cliente presenta un token de acceso OAuth2 válido (UC-007); la obtención del token ocurre fuera del sistema.
 
 ## Trigger
-- El actor solicita proveedores.
+- El actor solicita proveedores con page y pageSize opcionales.
 
 ## Main Success Scenario
-1. El actor solicita proveedores.
-2. El sistema recupera el catálogo ordenado por nombre e ID.
+1. El actor solicita proveedores con page y pageSize opcionales.
+2. El sistema valida page >= 1 y pageSize entre 1 y 100 (predeterminados 1 y 20) y recupera la página ordenada por nombre e ID.
 3. El sistema prepara los datos de proveedores.
-4. Devuelve 200 con lista, que puede estar vacía.
+4. Devuelve 200 con items (puede estar vacío), page, pageSize y totalCount.
 
 ## Alternative and Exception Flows
-- A1: 200: catálogo vacío.
+- A1: 200: catálogo vacío, items vacío y totalCount 0.
+- A2: 400: parámetros de paginación fuera de rango.
 - S1: Sin token o con token inválido: 401, no se ejecuta la operación (UC-007).
 
 ## Postconditions — Success

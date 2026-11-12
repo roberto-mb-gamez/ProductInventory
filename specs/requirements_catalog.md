@@ -73,6 +73,6 @@
 Las restricciones obligatorias C-001 a C-019 se documentan en [`../constraints.md`](../constraints.md). La arquitectura propuesta está pendiente de aprobación técnica. OAuth2 protege recursos mediante tokens emitidos externamente; no se implementa login propio.
 
 ## Códigos HTTP esperados (propuesta de contrato)
-- `200` consulta/actualización/registro de movimiento correcto; `201` creación; `204` eliminación.
+- `200` consulta/actualización correcta; `201` creación y registro de movimiento de inventario; `204` eliminación.
 - `400` entrada inválida; `401` credenciales ausentes/inválidas; `404` recurso inexistente; `409` unicidad, asociación impeditiva o conflicto de concurrencia.
 - `403` solo si se añaden permisos específicos en una etapa futura; no forma parte de la lógica de roles del MVP.

@@ -4,6 +4,7 @@ using ProductInventory.Infrastructure.Persistence;
 using ProductInventory.Infrastructure.Persistence.Products;
 using ProductInventory.Application.Products;
 using Microsoft.EntityFrameworkCore;
+using ProductInventory.Domain.Products;
 namespace ProductInventory.IntegrationTests.Persistence;
 public sealed class SqlServerFixture : IAsyncLifetime
 {
@@ -25,9 +26,9 @@ public sealed class SqlServerFixture : IAsyncLifetime
             INSERT INTO dbo.Categories (Id, Name) VALUES (@CategoryId, @CategoryName);
             INSERT INTO dbo.Suppliers (Id, Name) VALUES (@SupplierId, 'Test supplier');
             """, new { CategoryId = categoryId, CategoryName = $"Category-{categoryId:N}", SupplierId = supplierId });
-        var request = new CreateProductRequest($"SKU-{Guid.NewGuid():N}", "Test product", "Description", 12.3456m, categoryId, supplierId);
+        var product = new Product(Guid.NewGuid(), new($"SKU-{Guid.NewGuid():N}", "Test product", "Description", 12.3456m, categoryId, supplierId));
 
-        return await new DapperProductWriter(Connections).CreateAsync(request);
+        return (await new DapperProductWriter(Connections).CreateAsync(product)).Id;
     }
     public async Task InitializeAsync()
     {

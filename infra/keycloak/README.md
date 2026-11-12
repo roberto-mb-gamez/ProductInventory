@@ -31,7 +31,7 @@ El cliente Swagger utiliza exclusivamente Authorization Code con PKCE S256; no t
 4. Confirma que regresas a Swagger con la autorización completada.
 5. En las herramientas de red del navegador, verifica que la solicitud de autorización incluye `response_type=code`, `code_challenge_method=S256` y `code_challenge`; el intercambio debe usar `grant_type=authorization_code` y `code_verifier`, sin `client_secret`.
 6. Comprueba que el access token contiene `iss=http://localhost:8081/realms/productinventory`, audiencia `productinventory-api`, firma RS256 y `exp`. Usa el access token, no el ID token ni el refresh token. No guardes los tokens en documentación, capturas compartidas ni archivos versionables.
-Todavía no hay endpoints CRUD. Swagger muestra el esquema de autenticación y permite completar el login aunque aún no existan operaciones de negocio para probar.
+Swagger expone los CRUD de categorías, proveedores y productos y el registro de movimientos. Autoriza mediante login con PKCE para probarlos.
 ## Comprobar acceso HTTP
 Desde otra terminal:
 ```powershell
@@ -46,7 +46,7 @@ $headers = @{ Authorization = "Bearer $accessToken" }
 Invoke-WebRequest http://localhost:5181/api/products -Headers $headers -SkipHttpErrorCheck
 Remove-Variable accessToken, headers
 ```
-Con un access token válido se espera `404`: la autenticación pasa y la ruta CRUD todavía no está implementada. Ese resultado no implica que exista un caso de uso de productos. No se agrega un endpoint de diagnóstico para validar seguridad.
+Con un access token válido se espera `200` y el listado paginado de productos, que puede estar vacío. No se agrega un endpoint de diagnóstico de seguridad.
 ## Casos negativos manuales
 | Caso | Preparación | Resultado esperado |
 |---|---|---|
@@ -77,6 +77,6 @@ Para ejecutar la suite existente solo necesitas SQL Server, con la misma configu
 ```powershell
 docker compose up -d sqlserver
 ```
-Después ejecuta `dotnet test ProductInventory.sln` desde `code/`. No hace falta iniciar la API ni Keycloak. Las pruebas de health usan una configuración local sin proveedor de identidad accesible y no envían tokens. La suite de 29 pruebas se verificó con Keycloak detenido; no contiene pruebas de JWT, login, PKCE ni dependencias de Keycloak en `.runsettings`.
+Después ejecuta `dotnet test ProductInventory.sln` desde `code/`. No hace falta iniciar la API ni Keycloak. Las pruebas de health usan una configuración local sin proveedor de identidad accesible y no envían tokens. La suite de 5.3 (29 pruebas) se verificó con Keycloak detenido; no contiene pruebas de JWT, login, PKCE ni dependencias de Keycloak en `.runsettings`.
 ## Registro de validación manual
-La implementación y el arranque están comprobados. El 2026-11-12, el responsable del proyecto confirmó que la validación manual funcionó al 100%. Esta confirmación se registró como evidencia humana; después se cerró 5.3 como COMPLETED y se aplicó su aprobación explícita, quedando APPROVED. No se atribuye la ejecución manual a Codex. Los intentos de pruebas automatizadas retiradas permanecen como historial. La etapa 5.4 está READY y todavía no está autorizada para implementación.
+La implementación y el arranque están comprobados. El 2026-11-12, el responsable del proyecto confirmó que la validación manual funcionó al 100%. Esta confirmación se registró como evidencia humana; después se cerró 5.3 como COMPLETED y se aplicó su aprobación explícita, quedando APPROVED. No se atribuye la ejecución manual a Codex. Los intentos de pruebas automatizadas retiradas permanecen como historial. La etapa 5.4 está COMPLETED pendiente de aprobación, con 107 pruebas aprobadas y sin agregar pruebas automatizadas de JWT, login ni PKCE.

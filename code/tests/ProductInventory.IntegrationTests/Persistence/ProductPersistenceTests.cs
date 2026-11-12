@@ -3,6 +3,8 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using ProductInventory.Application.Products;
 using ProductInventory.Infrastructure.Persistence.Products;
+using ProductInventory.Domain.Products;
+using ProductInventory.Application.Errors;
 namespace ProductInventory.IntegrationTests.Persistence;
 [Collection("SqlServer")]
 public sealed class ProductPersistenceTests(SqlServerFixture database)
@@ -29,13 +31,11 @@ public sealed class ProductPersistenceTests(SqlServerFixture database)
         await using var context = database.CreateReadContext();
         var product = await new EfProductReader(context).GetByIdAsync(id);
         Assert.NotNull(product);
-        var duplicate = new CreateProductRequest(product.Sku.ToLowerInvariant(), "Duplicate", null, 1, product.CategoryId, product.SupplierId);
+        var duplicate = new Product(Guid.NewGuid(), new(product.Sku.ToLowerInvariant(), "Duplicate", null, 1, product.CategoryId, product.SupplierId));
         var writer = new DapperProductWriter(database.Connections);
-        var duplicateError = await Assert.ThrowsAsync<SqlException>(() => writer.CreateAsync(duplicate));
-        Assert.Contains(duplicateError.Number, new[] { 2601, 2627 });
-        var missingReference = duplicate with { Sku = $"SKU-{Guid.NewGuid():N}", CategoryId = Guid.NewGuid() };
-        var referenceError = await Assert.ThrowsAsync<SqlException>(() => writer.CreateAsync(missingReference));
-        Assert.Equal(547, referenceError.Number);
+        await Assert.ThrowsAsync<ConflictException>(() => writer.CreateAsync(duplicate));
+        var missingReference = new Product(Guid.NewGuid(), duplicate.Data with { Sku = $"SKU-{Guid.NewGuid():N}", CategoryId = Guid.NewGuid() });
+        await Assert.ThrowsAsync<NotFoundException>(() => writer.CreateAsync(missingReference));
     }
     [Fact]
     public async Task ForeignKeysBlockDeletionOfReferencedCategoryAndSupplier()
