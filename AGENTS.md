@@ -46,3 +46,6 @@ Authority: assessment > approved functional specs > accepted ADRs > architectura
 
 ## ADR translations
 Spanish translations of the eight accepted ADRs are available under `docs/adr/es/`. Treat `docs/adr/ADR-*.md` as the operational source of truth for Codex. Keep both language versions synchronized when an ADR changes. Spanish documentation does not authorize Spanish source code or comments.
+
+## Repository layout
+All application source, tests, the solution and shared build configuration live under `code/`. Run .NET commands from `code/`. Directory.Build.props defines the approved net9.0 target; no global.json is currently included. Keep documentation in `docs/` and `specs/`; future deployment and pipeline assets can use root-level `infra/` and `pipelines/`.
