@@ -1,0 +1,5 @@
+services:
+  productinventory-api:
+    labels:
+      com.microsoft.visual-studio.project-name: ProductInventory.Api
+      com.microsoft.visualstudio.launch-url.path-query: swagger/

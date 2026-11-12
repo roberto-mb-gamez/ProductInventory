@@ -1,16 +1,20 @@
 # Seguridad local y validación manual
 La etapa 5.3 integra Keycloak, JWT Bearer y Swagger con Authorization Code + PKCE. Por indicación explícita del responsable del proyecto, la seguridad se valida manualmente ejecutando la aplicación. La suite automatizada no requiere Keycloak ni ejecuta pruebas de autenticación o PKCE.
 ## Preparar el entorno
-Conserva el `.env` de la raíz. Si ya existe, agrega las variables nuevas de `infra/.env.example` sin reemplazar la contraseña SQL anterior:
+Conserva el archivo `code/.env`. Si ya existe, agrega las variables nuevas de `code/.env.example` sin reemplazar la contraseña SQL anterior:
 - `KEYCLOAK_ADMIN_PASSWORD`: contraseña local del administrador de Keycloak.
 - `KEYCLOAK_DEVELOPMENT_PASSWORD`: contraseña local del usuario de demostración.
 - `KEYCLOAK_PORT`: puerto público; 8081 por defecto.
 En este equipo ya se generaron contraseñas aleatorias en el `.env` ignorado por Git. No copies esos valores a archivos versionables.
-Desde la raíz:
-```powershell
-docker compose up --build -d
-docker compose ps
+Desde `code/`, en PowerShell (también desde un `.ps1` con ese directorio de trabajo) o CMD:
+
+```text
+docker compose --env-file .env up --build -d
+docker compose --env-file .env ps
 ```
+
+También puedes abrir `code/ProductInventory.sln`, establecer **docker-compose** como proyecto de inicio, seleccionar el perfil **Docker Compose** y pulsar **F5** o **Ctrl+F5**. El mismo `code/.env` configura los tres servicios. Consulta los pasos de [ejecución desde Visual Studio](../../README.md#ejecutar-desde-visual-studio).
+
 La API queda en http://localhost:5181, Swagger en http://localhost:5181/swagger/ y Keycloak en http://localhost:8081. Si una terminal antigua no encuentra docker-credential-desktop, reiníciala o aplica el ajuste temporal de PATH explicado en `../README.md`.
 Keycloak usa la imagen 26.8.2 fijada por digest, almacenamiento embebido de desarrollo en `keycloak-data` e importa `productinventory-realm.json`. SQL Server sigue siendo la única base de datos de la aplicación. La importación inicial sustituye las contraseñas y las direcciones de Swagger desde variables de entorno; no incluye claves privadas ni credenciales reales en el repositorio.
 ## Usuario y clientes
@@ -60,23 +64,15 @@ Con un access token válido se espera `200` y el listado paginado de productos, 
 Modificar `iss` o `aud` en el contenido de un token sin volver a firmarlo también invalida su firma; ese caso no demuestra por separado la validación de emisor o audiencia. Registra el caso realmente ejecutado y no marques el resto como probado.
 ## Emisor público y discovery interno
 La API valida siempre el emisor público `Identity__Authority=http://localhost:8081/realms/productinventory`. En Compose, `Identity__MetadataAddress` apunta a `http://keycloak:8080/realms/productinventory/.well-known/openid-configuration`. Keycloak tiene hostname público fijo y backchannel dinámico: mantiene el emisor público, pero publica un JWKS accesible por la dirección interna cuando la API consulta discovery. Swagger utiliza los endpoints públicos para que el navegador pueda resolverlos.
-En depuración local con Visual Studio, usa Development y estas variables del proceso de la API:
-```text
-ASPNETCORE_ENVIRONMENT=Development
-Identity__Authority=http://localhost:8081/realms/productinventory
-Identity__MetadataAddress=http://localhost:8081/realms/productinventory/.well-known/openid-configuration
-Identity__Audience=productinventory-api
-Swagger__Enabled=true
-Swagger__ClientId=productinventory-swagger
-```
+Al depurar el proyecto **docker-compose** desde Visual Studio, se utiliza la misma configuración de contenedores: emisor público para validar tokens y discovery interno para acceder a Keycloak. Compose establece Development, la audiencia y el cliente Swagger; no configures estas variables manualmente en las propiedades de la API.
 La API requiere firma RS256, emisor y audiencia correctos, expiración y vigencia válidas; no se sustituyen validadores ni se aceptan tokens sin firma. La tolerancia de reloj es de 30 segundos. Fuera de Development, las direcciones de identidad requieren HTTPS y las solicitudes HTTP a la API se rechazan; configura TLS antes de usar otro entorno. La configuración local HTTP y el modo start-dev de Keycloak no son de producción.
 ## Persistencia del realm
 El volumen `keycloak-data` conserva el realm entre reinicios. `--import-realm` omite un realm ya existente: cambiar el JSON o la contraseña del `.env` no modifica automáticamente un realm importado. No borres el volumen para aplicar cambios sin revisar antes los datos; una reinicialización destructiva requiere autorización explícita.
 ## Pruebas automatizadas sin Keycloak
-Para ejecutar la suite existente solo necesitas SQL Server, con la misma configuración de integración de 5.2. Desde la raíz puedes iniciar únicamente SQL:
-```powershell
-docker compose up -d sqlserver
+Para ejecutar la suite existente solo necesitas SQL Server, con la misma configuración de integración de 5.2. Desde `code/` puedes iniciar únicamente SQL:
+```text
+docker compose --env-file .env up -d sqlserver
 ```
-Después ejecuta `dotnet test ProductInventory.sln` desde `code/`. No hace falta iniciar la API ni Keycloak. Las pruebas de health usan una configuración local sin proveedor de identidad accesible y no envían tokens. La suite de 5.3 (29 pruebas) se verificó con Keycloak detenido; no contiene pruebas de JWT, login, PKCE ni dependencias de Keycloak en `.runsettings`.
+Después ejecuta `dotnet test tests/ProductInventory.IntegrationTests` desde `code/`. No hace falta iniciar la API ni Keycloak. Las pruebas de health usan una configuración local sin proveedor de identidad accesible y no envían tokens. La suite de 5.3 (29 pruebas) se verificó con Keycloak detenido; no contiene pruebas de JWT, login, PKCE ni dependencias de Keycloak en `.runsettings`.
 ## Registro de validación manual
 La implementación y el arranque están comprobados. El 2026-11-12, el responsable del proyecto confirmó que la validación manual funcionó al 100%. Esta confirmación se registró como evidencia humana; después se cerró 5.3 como COMPLETED y se aplicó su aprobación explícita, quedando APPROVED. No se atribuye la ejecución manual a Codex. Los intentos de pruebas automatizadas retiradas permanecen como historial. La etapa 5.4 está COMPLETED pendiente de aprobación, con 107 pruebas aprobadas y sin agregar pruebas automatizadas de JWT, login ni PKCE.

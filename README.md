@@ -6,7 +6,7 @@ Para compilar y ejecutar la API localmente necesitas:
 - **.NET 9 SDK** solo si vas a ejecutar las pruebas o desarrollar desde el equipo. Para ejecutar la API con Docker Compose, el SDK y el runtime están incluidos en las imágenes y no necesitas instalarlos localmente. Descárgalo desde la [página oficial de .NET 9](https://dotnet.microsoft.com/download/dotnet/9.0). El proyecto apunta a `net9.0` y no fija una versión puntual del SDK.
 - **Git**, para clonar el repositorio, y **acceso a Internet** durante `dotnet restore` para descargar paquetes de NuGet.
 
-Para trabajar desde Visual Studio en Windows, instala **Visual Studio 2022 17.12 o posterior** con la carga de trabajo **ASP.NET y desarrollo web**. También puedes compilar y ejecutar desde una terminal con el SDK, sin Visual Studio.
+Para trabajar desde Visual Studio en Windows, instala **Visual Studio 2022 17.12 o posterior** con la carga de trabajo **ASP.NET y desarrollo web** y las **herramientas de desarrollo de contenedores**. También puedes ejecutar Compose desde PowerShell o CMD, sin Visual Studio.
 
 Para iniciar los servicios locales y ejecutar las pruebas de integración necesitas **Docker Desktop** con Docker Engine y Docker Compose v2 disponibles. Compose ya viene incluido en Docker Desktop; no hace falta instalar Docker Compose por separado. Descarga Docker Desktop desde su [página oficial](https://www.docker.com/products/docker-desktop/) y consulta la [guía oficial de instalación de Compose](https://docs.docker.com/compose/install/). El entorno Compose levanta SQL Server, Keycloak y la API. Las pruebas de integración usan SQL Server real y requieren permiso `CREATE DATABASE`.
 
@@ -29,12 +29,17 @@ Comprueba la instalación con `docker --version` y `docker compose version`; par
 La aplicación implementa CQRS manual con comandos, consultas y handlers explícitos. Actualmente no incluye frontend, Aspire, MediatR, AutoMapper, FluentValidation, NUnit, Shouldly, Respawn ni Scalar.
 
 ## Estructura del repositorio
-El repositorio separa el código ejecutable, la documentación del proyecto y los recursos para el entorno local. La solución y sus siete proyectos viven en `code/`. El siguiente árbol resume los archivos y carpetas principales; omite artefactos generados, configuraciones privadas y carpetas vacías.
+El repositorio separa el código ejecutable, la documentación del proyecto y los recursos para el entorno local. La solución, sus siete proyectos .NET y el proyecto Docker Compose viven en `code/`. El siguiente árbol resume los archivos y carpetas principales; omite artefactos generados, configuraciones privadas y carpetas vacías.
 
 ```text
 ProductInventory/
 ├── code/
 │   ├── ProductInventory.sln
+│   ├── docker-compose.dcproj
+│   ├── docker-compose.yml
+│   ├── docker-compose.override.yml
+│   ├── launchSettings.json
+│   ├── .env.example
 │   ├── Directory.Build.props
 │   ├── Directory.Packages.props
 │   ├── .dockerignore
@@ -67,11 +72,9 @@ ProductInventory/
 │   ├── vision.md
 │   ├── use_cases.puml
 │   └── usecases/
-├── .env.example
 ├── .gitignore
 ├── AGENTS.md
 ├── constraints.md
-├── docker-compose.yml
 └── README.md
 ```
 
@@ -84,13 +87,13 @@ ProductInventory/
 - **`code/tests/ProductInventory.IntegrationTests/`**: pruebas HTTP y de persistencia contra SQL Server real; no usa una base de datos en memoria.
 - **`code/Directory.Build.props` y `code/Directory.Packages.props`**: centralizan propiedades de compilación, framework destino y versiones de paquetes NuGet. **`code/.editorconfig`** aplica convenciones de formato al árbol `code/`.
 - **`code/.dockerignore`**: excluye archivos del contexto de construcción de la imagen. **`code/integration.runsettings.example`** es la plantilla para configurar la conexión de las pruebas desde Visual Studio.
-- **`infra/` y `docker-compose.yml`**: configuración y guías para el entorno local. `infra/keycloak/` guarda la configuración del realm de desarrollo. Los secretos se proporcionan por variables de entorno o `.env` local ignorado por Git.
-- **`.env.example`**: plantilla principal para preparar el `.env` de Docker Compose. También existe una plantilla anterior en `infra/.env.example`.
+- **`infra/` y `code/docker-compose.yml`**: configuración y guías para el entorno local. `infra/keycloak/` guarda la configuración del realm de desarrollo. Los secretos se proporcionan por variables de entorno o `.env` local ignorado por Git.
+- **`code/.env.example`**: plantilla principal para preparar el `.env` de Docker Compose. También existe una plantilla anterior en `infra/.env.example`.
 - **`specs/`**: visión, requisitos, modelo de entidades, trazabilidad, diagrama de casos de uso y los 17 casos de uso aprobados. **`docs/adr/`** contiene las decisiones arquitectónicas aceptadas y **`docs/adr/es/`**, sus traducciones al español.
 - **`docs/implementation/`**: documentación y evidencias locales de implementación; actualmente no está versionada.
 - **`AGENTS.md` y `constraints.md`**: instrucciones de trabajo y restricciones técnicas del proyecto.
 
-Los archivos locales `.env` y `code/integration.local.runsettings`, junto con `.vs/`, `bin/` y `obj/`, están ignorados por Git. La carpeta `.github/workflows/` existe, pero actualmente está vacía; no hay pipelines configurados ni una carpeta `pipelines/`.
+Los archivos locales `code/.env` y `code/integration.local.runsettings`, junto con `.vs/`, `bin/` y `obj/`, están ignorados por Git. La carpeta `.github/workflows/` existe, pero actualmente está vacía; no hay pipelines configurados ni una carpeta `pipelines/`.
 
 Las dependencias entre proyectos siguen esta dirección: `Domain` no depende de otros proyectos; `Application` depende de `Domain`; `Infrastructure` implementa los puertos de `Application`; y `Api` compone las capas externas.
 ## Arquitectura y alcance
@@ -143,22 +146,22 @@ El proyecto entrega una API, sin frontend de negocio. No gestiona compras, venta
 Los requisitos y casos de uso están en [specs/requirements_catalog.md](specs/requirements_catalog.md) y [specs/usecases/](specs/usecases/). El [modelo de entidades](specs/entity_model.md) describe las relaciones de negocio. Las decisiones técnicas se documentan en [docs/adr/](docs/adr/), con traducciones al español en [docs/adr/es/](docs/adr/es/); las restricciones del assessment se encuentran en [constraints.md](constraints.md).
 
 ## Restauración, compilación y pruebas
-Ejecuta los comandos desde la raíz del repositorio, con Docker Desktop iniciado y el motor de contenedores Linux disponible.
+Ejecuta los comandos desde `code/`, con Docker Desktop iniciado y el motor de contenedores Linux disponible. Desde la raíz, entra primero con `cd code` (PowerShell o CMD).
 
 ### Preparar el archivo .env
 
 Copia la plantilla si todavía no tienes `.env`:
 
-PowerShell:
+PowerShell (terminal o script `.ps1`, desde `code/`):
 
 ```powershell
-Copy-Item .env.example .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
 CMD:
 
 ```bat
-copy .env.example .env
+if not exist .env copy .env.example .env
 ```
 
 Completa `SQL_SERVER_PASSWORD`, `KEYCLOAK_ADMIN_PASSWORD` y `KEYCLOAK_DEVELOPMENT_PASSWORD` con contraseñas locales diferentes. Para SQL usa una contraseña fuerte de al menos 12 caracteres, con mayúsculas, minúsculas, números y símbolos; evita punto y coma y comillas. Conserva los puertos predeterminados o ajústalos si están ocupados. Si `.env` ya existe, agrega únicamente las claves que falten. No lo publiques en Git.
@@ -188,31 +191,49 @@ Ejecuta la suite desde el equipo con .NET 9 SDK. Sustituye `REPLACE_WITH_SQL_SER
 PowerShell:
 
 ```powershell
-Set-Location code
 $env:PRODUCTINVENTORY_TEST_CONNECTION_STRING = 'Server=localhost,14333;Database=master;User ID=sa;Password=REPLACE_WITH_SQL_SERVER_PASSWORD;Encrypt=true;TrustServerCertificate=true'
-dotnet test ProductInventory.sln
-Set-Location ..
+dotnet test tests/ProductInventory.Domain.Tests
+dotnet test tests/ProductInventory.Application.Tests
+dotnet test tests/ProductInventory.IntegrationTests
 ```
 
 CMD:
 
 ```bat
-cd code
 set "PRODUCTINVENTORY_TEST_CONNECTION_STRING=Server=localhost,14333;Database=master;User ID=sa;Password=REPLACE_WITH_SQL_SERVER_PASSWORD;Encrypt=true;TrustServerCertificate=true"
-dotnet test ProductInventory.sln
-cd ..
+dotnet test tests/ProductInventory.Domain.Tests
+dotnet test tests/ProductInventory.Application.Tests
+dotnet test tests/ProductInventory.IntegrationTests
 ```
 
 `dotnet test` restaura y compila los proyectos de pruebas antes de ejecutarlos. Si existe `code/integration.local.runsettings`, su conexión tiene prioridad sobre la variable de la terminal; actualízala para que apunte al SQL Server del contenedor.
 
 Hay cuatro proyectos de código fuente y tres de pruebas. Las pruebas de integración requieren SQL Server real y permiso CREATE DATABASE; la ausencia de conexión produce un fallo y no omite las pruebas de base de datos. Cada ejecución crea bases con nombres únicos y las conserva para inspección. No se reinicia ni elimina ninguna base existente. La suite contiene 20 pruebas de Domain, 23 de Application y 64 de integración. Los tests HTTP usan una identidad exclusiva del host de pruebas para comprobar negocio; no validan JWT ni necesitan Keycloak. La seguridad se revisa manualmente. Todos los proyectos de pruebas referencian Moq.
 ## Ejecución y depuración local
-Desde la raíz, con `.env` configurado, inicia la API, SQL Server y Keycloak. Los comandos funcionan en PowerShell y CMD:
 
-```text
+### PowerShell
+
+Desde la raíz del repositorio, con `code/.env` configurado:
+
+```powershell
+Set-Location code
 docker compose --env-file .env up --build -d
 docker compose --env-file .env ps
+Invoke-WebRequest http://localhost:5181/health
 ```
+
+### Símbolo del sistema (CMD)
+
+Desde la raíz del repositorio, con `code/.env` configurado:
+
+```bat
+cd code
+docker compose --env-file .env up --build -d
+docker compose --env-file .env ps
+curl.exe -i http://localhost:5181/health
+```
+
+Si ya estás en `code/`, omite el primer comando del bloque elegido. Ambos procedimientos inician la API, SQL Server y Keycloak. Si usas un script `.ps1`, ejecútalo con `code/` como directorio de trabajo y omite `Set-Location code`.
 
 Compose espera a que SQL Server y Keycloak estén disponibles antes de iniciar la API. Con los puertos predeterminados, abre:
 
@@ -222,14 +243,30 @@ Compose espera a que SQL Server y Keycloak estén disponibles antes de iniciar l
 
 Si cambiaste `API_PORT` o `KEYCLOAK_PORT`, ajusta las direcciones. Las rutas de negocio requieren un token válido; `/health` es anónima.
 
-Para diagnosticar errores y revisar la salida de los servicios:
+### Ejecutar desde Visual Studio
+
+1. Inicia Docker Desktop con contenedores Linux y prepara `code/.env` como se indica en **Preparar el archivo .env**.
+2. Abre `code/ProductInventory.sln` en Visual Studio 2022.
+3. En el Explorador de soluciones, haz clic derecho en **docker-compose** y selecciona **Establecer como proyecto de inicio**.
+4. Selecciona la configuración **Debug** y el perfil **Docker Compose** en la barra de ejecución.
+5. Pulsa **F5** para depurar o **Ctrl+F5** para ejecutar sin depuración. Visual Studio construye la imagen, inicia la API, SQL Server y Keycloak y abre Swagger.
+6. Para depurar, coloca un punto de interrupción en un endpoint o handler y ejecuta la operación desde Swagger después de iniciar sesión.
+7. Finaliza la sesión desde **Depurar > Detener depuración** (**Shift+F5**). Para detener todo el entorno y conservar los volúmenes, utiliza el comando `down` que aparece más abajo.
+
+El proyecto carga `code/.env` mediante `DockerComposeEnvFilePath` y utiliza el modo `Regular` para construir la imagen completa. No necesitas copiar las credenciales a las propiedades de la API ni configurar variables de identidad manualmente. La ejecución desde Visual Studio fue confirmada por el responsable del proyecto.
+
+La terminal y Visual Studio utilizan el mismo nombre de proyecto, `productinventory`, y los mismos volúmenes. Detén la sesión de Visual Studio antes de administrar el entorno desde la terminal. Consulta la [documentación de propiedades de Docker Compose en Visual Studio](https://learn.microsoft.com/visualstudio/containers/docker-compose-properties?view=vs-2022).
+
+### Logs y apagado desde la terminal
+
+Desde `code/`, los siguientes comandos funcionan en PowerShell y CMD. Para seguir los logs de la API:
 
 ```text
 docker compose --env-file .env logs --tail 100 productinventory-api sqlserver keycloak
 docker compose --env-file .env logs -f productinventory-api
 ```
 
-Ctrl+C termina el seguimiento de logs; los contenedores continúan ejecutándose. Después de modificar código, vuelve a ejecutar `docker compose --env-file .env up --build -d`. La imagen actual ejecuta la API en Release y no configura depuración con puntos de interrupción.
+Ctrl+C termina el seguimiento de logs; los contenedores continúan ejecutándose. Después de modificar código, vuelve a ejecutar `docker compose --env-file .env up --build -d`. Desde la terminal, la imagen utiliza Release por defecto.
 
 Para detener el entorno conservando los datos:
 

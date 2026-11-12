@@ -1,3 +1,4 @@
+name: productinventory
 services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.8.2@sha256:723b1d6e254c0fc96d5cffec860c7e0744d6a3277822b865bb538cf891575e41
@@ -16,7 +17,7 @@ services:
     ports:
       - "${KEYCLOAK_PORT:-8081}:8080"
     volumes:
-      - ./infra/keycloak/productinventory-realm.json:/opt/keycloak/data/import/productinventory-realm.json:ro
+      - ../infra/keycloak/productinventory-realm.json:/opt/keycloak/data/import/productinventory-realm.json:ro
       - keycloak-data:/opt/keycloak/data
     healthcheck:
       test: ["CMD", "bash", "-c", "{ printf 'HEAD /health/ready HTTP/1.0\\r\\n\\r\\n' >&0; grep 'HTTP/1.0 200'; } 0<>/dev/tcp/localhost/9000"]
@@ -42,7 +43,7 @@ services:
       start_period: 20s
   productinventory-api:
     build:
-      context: ./code
+      context: .
       dockerfile: src/ProductInventory.Api/Dockerfile
     environment:
       ASPNETCORE_HTTP_PORTS: "8080"

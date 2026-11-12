@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "Docker Compose": {
+      "commandName": "DockerCompose",
+      "commandVersion": "1.0",
+      "serviceActions": {
+        "productinventory-api": "StartDebugging",
+        "sqlserver": "StartWithoutDebugging",
+        "keycloak": "StartWithoutDebugging"
+      }
+    }
+  }
+}

@@ -3,6 +3,7 @@
 
 ## Decisión
 - Proporcionar un Dockerfile multietapa para la API .NET 9 y `docker-compose.yml` con `productinventory-api`, `sqlserver` y `keycloak`.
+- Mantener los archivos Compose, el proyecto Compose de Visual Studio y el `.env` local en `code/`, junto a la solución. Usar `code/.env.example` como plantilla y ejecutar Compose desde `code/`. Conservar el nombre de proyecto `productinventory` para reutilizar los volúmenes con nombre.
 - `docker compose up --build -d` debe iniciar el entorno desde una copia limpia del repositorio, con configuración de desarrollo documentada y la inicialización necesaria de base de datos y realm.
 - Persistir los datos de SQL Server en un volumen con nombre. Utilizar health checks y reintentos para evitar que la API arranque antes de que sus dependencias estén disponibles. Configurar variables de entorno y secretos de Compose cuando corresponda; no publicar secretos reales.
 - SQL Server será la única base de datos de la aplicación. Keycloak podrá utilizar su almacenamiento integrado en modo desarrollo para esta prueba; no presentarlo como configuración productiva.

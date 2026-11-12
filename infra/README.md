@@ -1,16 +1,56 @@
 # Entorno de persistencia local
-El entorno incorpora API, SQL Server y Keycloak durante la etapa 5.3. La etapa 5.4 incorpora las 16 operaciones HTTP de negocio protegidas. La [guía de seguridad](keycloak/README.md) describe la revisión manual; la suite automatizada no depende de Keycloak. Conserva los secretos en variables de entorno o en el archivo `.env` de la raíz, ignorado por Git; el `.env.example` incluido contiene únicamente valores de ejemplo para sustituir.
+El entorno incorpora API, SQL Server y Keycloak durante la etapa 5.3. La etapa 5.4 incorpora las 16 operaciones HTTP de negocio protegidas. La [guía de seguridad](keycloak/README.md) describe la revisión manual; la suite automatizada no depende de Keycloak. Conserva los secretos en variables de entorno o en el archivo `code/.env`, ignorado por Git; el `.env.example` incluido contiene únicamente valores de ejemplo para sustituir.
 ## Docker Compose
-Desde la raíz del repositorio:
+### PowerShell
+
+Desde la raíz del repositorio, prepara `.env` si aún no existe:
+
 ```powershell
-Copy-Item .env.example .env
+Set-Location code
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
-Si `.env` ya existe, conserva sus valores y agrega solo las variables nuevas de `.env.example`. Sustituye los marcadores de contraseña SQL, administrador de Keycloak y usuario de desarrollo por contraseñas locales diferentes. Utiliza una contraseña sin separadores de cadenas de conexión, como punto y coma o comillas. Después ejecuta:
-```powershell
+
+### CMD
+
+Desde la raíz del repositorio:
+
+```bat
+cd code
+if not exist .env copy .env.example .env
+```
+
+Si ya estás en `code/`, omite el primer comando del bloque elegido. Para un script `.ps1`, utiliza los comandos de PowerShell con `code/` como directorio de trabajo y omite `Set-Location code`.
+
+Si `.env` ya existe, conserva sus valores y agrega solo las variables nuevas de `.env.example`. Sustituye los marcadores de contraseña SQL, administrador de Keycloak y usuario de desarrollo por contraseñas locales diferentes. Utiliza una contraseña sin separadores de cadenas de conexión, como punto y coma o comillas.
+
+### Iniciar desde la terminal
+
+Desde `code/`, estos comandos funcionan en PowerShell y CMD:
+
+```text
+docker compose --env-file .env config --quiet
 docker compose --env-file .env up --build -d
-docker compose ps
+docker compose --env-file .env ps
+```
+
+Comprueba la salud con PowerShell:
+
+```powershell
 Invoke-WebRequest http://localhost:5181/health
 ```
+
+En CMD:
+
+```bat
+curl.exe -i http://localhost:5181/health
+```
+
+### Iniciar desde Visual Studio
+
+Con Docker Desktop iniciado y `code/.env` configurado, abre `code/ProductInventory.sln`, establece **docker-compose** como proyecto de inicio y selecciona **Debug > Docker Compose** en la barra de ejecución. Pulsa **F5** para depurar o **Ctrl+F5** para ejecutar sin depuración. Se inician los tres servicios y se abre Swagger. El proyecto carga `.env` automáticamente.
+
+La [guía principal](../README.md#ejecutar-desde-visual-studio) detalla la ejecución y los puntos de interrupción. Terminal y Visual Studio comparten el proyecto `productinventory` y sus volúmenes; detén la sesión del IDE antes de administrar el entorno desde la terminal. Desde `code/`, usa `docker compose --env-file .env logs -f productinventory-api` para ver logs y `docker compose --env-file .env down` para detener todo sin eliminar volúmenes.
+
 Si acabas de instalar Docker Desktop, reinicia la terminal para que reciba el PATH actualizado. En instalaciones por usuario, puede ser necesario un ajuste temporal de PowerShell para localizar el auxiliar de credenciales:
 ```powershell
 $env:PATH = "$env:LOCALAPPDATA\Programs\DockerDesktop\resources\bin;$env:PATH"
@@ -36,7 +76,7 @@ Esta configuración es para desarrollo: utiliza la edición Developer, credencia
 | Identity__Audience | Audiencia válida de la API | Requerida; Compose usa productinventory-api |
 | Swagger__Enabled / Swagger__ClientId | Habilitación de Swagger y cliente público PKCE | false / requerido al habilitar Swagger |
 | PRODUCTINVENTORY_TEST_CONNECTION_STRING | Conexión SQL con permiso de creación de bases para las pruebas de integración | Requerida para ejecutar pruebas de base de datos |
-Para depurar la API localmente, establece ConnectionStrings__Inventory y Database__Initialize en el entorno del depurador y selecciona ProductInventory.Api como proyecto de inicio. Para conectarte al servicio SQL de Compose desde el equipo, utiliza `Server=localhost,14333;Database=ProductInventory;User ID=sa;Password=<local-password>;Encrypt=true;TrustServerCertificate=true`.
+Al ejecutar el proyecto **docker-compose** desde Visual Studio, Compose proporciona las variables de la API; no necesitas configurarlas en el depurador. Para conectarte al servicio SQL de Compose desde el equipo, utiliza `Server=localhost,14333;Database=ProductInventory;User ID=sa;Password=<local-password>;Encrypt=true;TrustServerCertificate=true` y ajusta el puerto a `SQL_SERVER_PORT`.
 ## Esquema y permisos
 El esquema está en `code/src/ProductInventory.Infrastructure/Persistence/Schema/001_initial.sql`, embebido en Infrastructure. El inicializador lo ejecuta mediante Dapper. Crea exactamente Categories, Suppliers, Products e InventoryMovements. SQL aplica claves primarias GUID, unicidad de SKU y nombre de categoría sin distinguir mayúsculas, claves foráneas sin eliminación en cascada, cantidades positivas, aritmética válida de existencias y desfase horario UTC. Un desencadenador de actualización y eliminación protege el historial de movimientos. Las escrituras de productos omiten StockQuantity para que SQL lo inicialice en cero.
 La inicialización utiliza bloqueos de aplicación SQL y una transacción; repetirla conserva los datos. Es un mecanismo idempotente de esquema inicial y no migra automáticamente diferencias arbitrarias en esquemas existentes. Los cambios futuros requieren scripts explícitos de migración y pruebas. Price es decimal(19,4); las existencias y cantidades son int; las fechas son datetimeoffset(7) en UTC; las descripciones y correos opcionales permanecen como texto sin longitud máxima definida.
@@ -49,10 +89,10 @@ Las comprobaciones de salud verifican la conectividad mediante SELECT 1, no la i
 ## Pruebas de integración con SQL real
 Ejecuta desde `code/`:
 ```powershell
-$env:PRODUCTINVENTORY_TEST_CONNECTION_STRING = 'Server=localhost;Integrated Security=true;Encrypt=true;TrustServerCertificate=true'
-dotnet restore ProductInventory.sln
-dotnet build ProductInventory.sln --no-restore
-dotnet test ProductInventory.sln --no-build --no-restore
+$env:PRODUCTINVENTORY_TEST_CONNECTION_STRING = 'Server=localhost,14333;Database=master;User ID=sa;Password=REPLACE_WITH_SQL_SERVER_PASSWORD;Encrypt=true;TrustServerCertificate=true'
+dotnet restore tests/ProductInventory.IntegrationTests
+dotnet build tests/ProductInventory.IntegrationTests --no-restore
+dotnet test tests/ProductInventory.IntegrationTests --no-build --no-restore
 ```
 Utiliza credenciales SQL del entorno para conectarte a la instancia SQL de Compose. Las pruebas nunca sustituyen SQL Server por SQLite ni por un proveedor en memoria. Cada ejecución crea ProductInventoryTests_<guid> y una base independiente ProductInventoryStartupTests_<guid>, conservadas para inspección y limpieza manual. Los desencadenadores exclusivos de pruebas provocan un fallo de inserción y una cancelación controlada después de actualizar las existencias. Las pruebas de entradas y salidas concurrentes usan conexiones SQL independientes y una señal de inicio compartida.
 ### Explorador de pruebas de Visual Studio
